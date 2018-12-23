@@ -37,13 +37,12 @@ fn parse_vocadata(filename: &str) -> Result<VocaList, Box<dyn Error>> {
     Ok(data)
 }
 
-fn list(data: &VocaList, withtranslation: bool) {
+fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
     for item in data.items.iter() {
-        if withtranslation {
-            println!("{}\t{}", item.word, item.translation)
-        } else {
-            println!("{}", item) //(rely on the Display trait)
-        }
+        print!("{}", item);
+        if withtranscription { print!("\t{}", item.transcription) }
+        if withtranslation { print!("\t{}", item.translation) }
+        println!()
     }
 }
 
@@ -62,6 +61,11 @@ fn main() {
                          .help("Show translations")
                          .long("translation")
                          .short("t")
+                    )
+                    .arg(Arg::with_name("phon")
+                         .help("Show phonetic transcription")
+                         .long("phon")
+                         .short("p")
                     ))
         .get_matches();
 
@@ -72,9 +76,9 @@ fn main() {
                 match argmatches.subcommand_name() {
                     Some("list") => {
                         if let Some(submatches) = argmatches.subcommand_matches("list") {
-                            list(&data, submatches.is_present("translations"));
+                            list(&data, submatches.is_present("translations"), submatches.is_present("phon"));
                         } else {
-                            list(&data, false);
+                            list(&data, false, false);
                         }
                     },
                     _ => {
