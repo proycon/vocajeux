@@ -8,8 +8,10 @@ use std::fs;
 use std::error::Error;
 use std::fmt;
 use clap::{App, Arg, SubCommand};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Hash)]
 struct VocaItem {
     word: String,
     transcription: String,
@@ -24,6 +26,7 @@ impl fmt::Display for VocaItem {
         write!(f,"{}",self.word)
     }
 }
+
 
 #[derive(Serialize, Deserialize)]
 struct VocaList {
@@ -44,6 +47,12 @@ fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
         if withtranslation { print!("\t{}", item.translation) }
         println!()
     }
+}
+
+fn hash<T: Hash>(t: &T) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    t.hash(&mut hasher);
+    hasher.finish()
 }
 
 fn main() {
@@ -92,3 +101,4 @@ fn main() {
         }
     }
 }
+
