@@ -11,6 +11,7 @@ use clap::{App, Arg, SubCommand};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+/// Vocabulary Item data structure
 #[derive(Serialize, Deserialize, Hash)]
 struct VocaItem {
     word: String,
@@ -21,6 +22,7 @@ struct VocaItem {
     tags: Vec<String>
 }
 
+//we implement the Display trait so we can print VocaItems
 impl fmt::Display for VocaItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,"{}",self.word)
@@ -28,18 +30,21 @@ impl fmt::Display for VocaItem {
 }
 
 
+/// Vocabulary List data structure
 #[derive(Serialize, Deserialize)]
 struct VocaList {
     items: Vec<VocaItem>
 }
 
 
+/// Parse the vocabulary data file (JSON) into the VocaList structure
 fn parse_vocadata(filename: &str) -> Result<VocaList, Box<dyn Error>> {
     let data = fs::read_to_string(filename)?;
     let data: VocaList = serde_json::from_str(data.as_str())?; //(shadowing)
     Ok(data)
 }
 
+/// List/Print the contents of the Vocabulary List to standard output
 fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
     for item in data.items.iter() {
         print!("{}", item);
@@ -49,6 +54,7 @@ fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
     }
 }
 
+/// A function that computes and returns a hash for a given object
 fn hash<T: Hash>(t: &T) -> u64 {
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
@@ -82,6 +88,7 @@ fn main() {
         eprintln!("Loading {}", filename);
         match parse_vocadata(filename) {
             Ok(data) => {
+                //see what subcommand to perform
                 match argmatches.subcommand_name() {
                     Some("list") => {
                         if let Some(submatches) = argmatches.subcommand_matches("list") {
