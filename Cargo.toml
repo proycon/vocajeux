@@ -1,0 +1,11 @@
+[package]
+name = "vocajeux"
+version = "0.1.0"
+authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.32.0"
+serde = "1.0"
+serde_json = "1.0.33"
+serde_derive = "1.0"
