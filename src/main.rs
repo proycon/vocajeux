@@ -7,12 +7,12 @@ extern crate serde_derive;
 use std::fs;
 use std::error::Error;
 use std::fmt;
+use std::collections::HashMap;
 use clap::{App, Arg, SubCommand};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use md5::{compute,Digest};
 
 /// Vocabulary Item data structure
-#[derive(Serialize, Deserialize, Hash)]
+#[derive(Serialize, Deserialize)]
 struct VocaItem {
     word: String,
     transcription: String,
@@ -22,6 +22,12 @@ struct VocaItem {
     tags: Vec<String>
 }
 
+/// Vocabulary List data structure
+#[derive(Serialize, Deserialize)]
+struct VocaList {
+    items: Vec<VocaItem>
+}
+
 //we implement the Display trait so we can print VocaItems
 impl fmt::Display for VocaItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -29,12 +35,12 @@ impl fmt::Display for VocaItem {
     }
 }
 
-
-/// Vocabulary List data structure
-#[derive(Serialize, Deserialize)]
-struct VocaList {
-    items: Vec<VocaItem>
+impl VocaItem {
+    fn id(&self) -> md5::Digest {
+        md5::compute(self.word.as_bytes())
+    }
 }
+
 
 
 /// Parse the vocabulary data file (JSON) into the VocaList structure
@@ -54,12 +60,6 @@ fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
     }
 }
 
-/// A function that computes and returns a hash for a given object
-fn hash<T: Hash>(t: &T) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    t.hash(&mut hasher);
-    hasher.finish()
-}
 
 fn main() {
     let argmatches = App::new("Vocajeux")
