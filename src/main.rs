@@ -80,12 +80,16 @@ fn getinputline() -> Option<String> {
 }
 
 ///Quiz
-fn quiz(data: &VocaList) {
+fn quiz(data: &VocaList, phon: bool) {
     let guesses = 3;
     loop {
         //select a random item
         let vocaitem = select_item(data);
-        println!("Translate: {}", vocaitem);
+        if phon {
+            println!("Translate: {} ({})", vocaitem, vocaitem.transcription);
+        } else {
+            println!("Translate: {}", vocaitem);
+        }
         let mut correct = false;
         for _ in 0..guesses {
             //get response from user
@@ -127,11 +131,15 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 }
 
 ///Multiple-choice Quiz
-fn multiquiz(data: &VocaList, choicecount: u32) {
+fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
     loop {
         //select a random item
         let vocaitem = select_item(data);
-        println!("Translate: {}", vocaitem);
+        if phon {
+            println!("Translate: {} ({})", vocaitem, vocaitem.transcription);
+        } else {
+            println!("Translate: {}", vocaitem);
+        }
         let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
         for (i, option) in options.iter().enumerate() {
             println!("{} - {}", i+1, option.translation);
@@ -176,6 +184,11 @@ fn main() {
                     ))
         .subcommand(SubCommand::with_name("quiz")
                     .about("Simple quiz")
+                    .arg(Arg::with_name("phon")
+                         .help("Show phonetic transcription")
+                         .long("phon")
+                         .short("p")
+                    )
                     .arg(Arg::with_name("multiplechoice")
                          .help("Multiple choice (number of choices)")
                          .long("multiplechoice")
@@ -202,13 +215,13 @@ fn main() {
                             if submatches.is_present("multiplechoice") {
                                 if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                     let choicecount: u32 = choicecount.parse().unwrap();
-                                    multiquiz(&data, choicecount);
+                                    multiquiz(&data, choicecount, submatches.is_present("phon"));
                                 }
                             } else {
-                                quiz(&data);
+                                quiz(&data, submatches.is_present("phon"));
                             }
                         } else {
-                            quiz(&data);
+                            quiz(&data, false);
                         }
                     },
                     _ => {
