@@ -10,10 +10,8 @@ use std::error::Error;
 use std::fmt;
 use std::iter::Iterator;
 use std::io::BufRead;
-use std::collections::HashMap;
 use clap::{App, Arg, SubCommand};
 use md5::{compute,Digest};
-use rand::random;
 
 /// Vocabulary Item data structure
 #[derive(Serialize, Deserialize)]
@@ -107,12 +105,11 @@ fn quiz(data: &VocaList) {
     }
 }
 
-fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem) -> (Vec<&'a VocaItem>, usize) {
-    let optioncount = 6;
+fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount: u32) -> (Vec<&'a VocaItem>, u32) {
     //reserve an index for the correct option
     let correctindex: f64 = rand::random::<f64>() * (optioncount as f64);
-    let correctindex: usize = correctindex as usize;
-    let options: Vec<&VocaItem>;
+    let correctindex: u32 = correctindex as u32;
+    let mut options: Vec<&VocaItem> = Vec::new();
     for i in 0..optioncount {
         if i == correctindex {
             options.push(correctitem);
@@ -130,32 +127,27 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem) -> (Vec<&'a
 }
 
 ///Multiple-choice Quiz
-fn multiquiz(data: &VocaList) {
+fn multiquiz(data: &VocaList, choicecount: u32) {
     loop {
         //select a random item
         let vocaitem = select_item(data);
         println!("Translate: {}", vocaitem);
-        let (options, correctindex) = getquizoptions(&data, &vocaitem);
-        for (i, option) in options.enumerate() {
+        let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
+        for (i, option) in options.iter().enumerate() {
             println!("{} - {}", i+1, option.translation);
         }
         let mut correct = false;
         //get response from user
         if let Some(response) = getinputline() {
             if let Ok(responseindex) = response.parse::<usize>() {
-                correct = responseindex -1 == correctindex;
-                if correct {
-                    break;
-                }
+                correct = responseindex -1 == correctindex as usize;
             } else {
                 println!("Enter a number!");
             }
-        } else {
-            break;
         }
-        println!("Incorrect! Try again (or ENTER to skip)");
-        if !correct {
-            println!("The correct translation is: {}", vocaitem.translation);
+        match correct {
+            true => println!("Correct!"),
+            false => println!("Incorrect; the correct translation is: {}", vocaitem.translation)
         }
     }
 }
@@ -184,7 +176,12 @@ fn main() {
                     ))
         .subcommand(SubCommand::with_name("quiz")
                     .about("Simple quiz")
-                    )
+                    .arg(Arg::with_name("multiplechoice")
+                         .help("Multiple choice (number of choices)")
+                         .long("multiplechoice")
+                         .short("m")
+                         .takes_value(true)
+                    ))
         .get_matches();
 
     if let Some(filename) = argmatches.value_of("file") {
@@ -201,7 +198,18 @@ fn main() {
                         }
                     },
                     Some("quiz") => {
-                        quiz(&data);
+                        if let Some(submatches) = argmatches.subcommand_matches("quiz") {
+                            if submatches.is_present("multiplechoice") {
+                                if let Some(choicecount) = submatches.value_of("multiplechoice") {
+                                    let choicecount: u32 = choicecount.parse().unwrap();
+                                    multiquiz(&data, choicecount);
+                                }
+                            } else {
+                                quiz(&data);
+                            }
+                        } else {
+                            quiz(&data);
+                        }
                     },
                     _ => {
                         eprintln!("Nothing to do!");
