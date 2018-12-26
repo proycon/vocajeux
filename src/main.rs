@@ -95,6 +95,14 @@ fn checktranslation(input: &String, reference: &String) -> bool {
     false
 }
 
+fn quizprompt(vocaitem: &VocaItem, phon: bool) {
+    if phon {
+        println!("{}: {} ({})", Blue.paint("Translate"), vocaitem, vocaitem.transcription);
+    } else {
+        println!("{}: {}", Blue.paint("Translate"), vocaitem);
+    }
+}
+
 ///Quiz
 fn quiz(data: &VocaList, phon: bool) {
     println!("QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
@@ -102,11 +110,7 @@ fn quiz(data: &VocaList, phon: bool) {
     loop {
         //select a random item
         let vocaitem = select_item(data);
-        if phon {
-            println!("{}: {} ({})", Blue.paint("Translate"), vocaitem, vocaitem.transcription);
-        } else {
-            println!("{}: {}", Blue.paint("Translate"), vocaitem);
-        }
+        quizprompt(vocaitem, phon);
         let mut correct = false;
         for _ in 0..guesses {
             //get response from user
@@ -163,11 +167,7 @@ fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
     loop {
         //select a random item
         let vocaitem = select_item(data);
-        if phon {
-            println!("Translate: {} ({})", vocaitem, vocaitem.transcription);
-        } else {
-            println!("Translate: {}", vocaitem);
-        }
+        quizprompt(vocaitem, phon);
         let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
         for (i, option) in options.iter().enumerate() {
             println!("{} - {}", i+1, option.translation);
@@ -188,11 +188,13 @@ fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
                 } else {
                     println!("Enter a number!");
                 }
+            } else {
+                break;
             }
         }
         match correct {
-            true => println!("Correct!"),
-            false => println!("Incorrect; the correct translation is: {}", vocaitem.translation)
+            true => println!("{}", Green.paint("Correct!")),
+            false => println!("{}; the correct translation is: {}", Red.paint("Incorrect"), Green.paint(&vocaitem.translation))
         }
         println!();
     }
