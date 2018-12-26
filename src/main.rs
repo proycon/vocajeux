@@ -12,7 +12,7 @@ use std::fs;
 use std::error::Error;
 use std::fmt;
 use std::iter::Iterator;
-use std::io::BufRead;
+use std::io::{BufRead,Write};
 use clap::{App, Arg, SubCommand};
 use md5::{compute,Digest};
 use regex::Regex;
@@ -75,6 +75,8 @@ fn select_item(data: &VocaList) -> &VocaItem {
 }
 
 fn getinputline() -> Option<String> {
+    print!(">>> ");
+    std::io::stdout().flush().unwrap();
     let stdin = std::io::stdin();
     let response = stdin.lock().lines().next().unwrap().unwrap(); //read one line only
     if response != "" {
