@@ -5,6 +5,8 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate regex;
+extern crate md5;
+extern crate ansi_term;
 
 use std::fs;
 use std::error::Error;
@@ -14,6 +16,7 @@ use std::io::BufRead;
 use clap::{App, Arg, SubCommand};
 use md5::{compute,Digest};
 use regex::Regex;
+use ansi_term::Colour::{Red,Green, Blue};
 
 /// Vocabulary Item data structure
 #[derive(Serialize, Deserialize)]
@@ -94,15 +97,15 @@ fn checktranslation(input: &String, reference: &String) -> bool {
 
 ///Quiz
 fn quiz(data: &VocaList, phon: bool) {
-    println!("QUIZ (type p for phonetic transcription, x for example)");
+    println!("QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
     let guesses = 3;
     loop {
         //select a random item
         let vocaitem = select_item(data);
         if phon {
-            println!("Translate: {} ({})", vocaitem, vocaitem.transcription);
+            println!("{}: {} ({})", Blue.paint("Translate"), vocaitem, vocaitem.transcription);
         } else {
-            println!("Translate: {}", vocaitem);
+            println!("{}: {}", Blue.paint("Translate"), vocaitem);
         }
         let mut correct = false;
         for _ in 0..guesses {
@@ -117,17 +120,17 @@ fn quiz(data: &VocaList, phon: bool) {
                 } else {
                     correct = checktranslation(&response, &vocaitem.translation);
                     if correct {
-                        println!("Correct!");
+                        println!("{}", Green.paint("Correct!"));
                         break;
                     }
                 }
             } else {
                 break;
             }
-            println!("Incorrect! Try again (or ENTER to skip)");
+            println!("{} Try again (or ENTER to skip)", Red.paint("Incorrect!"));
         }
         if !correct {
-            println!("The correct translation is: {}", vocaitem.translation);
+            println!("The correct translation is: {}", Green.paint(&vocaitem.translation));
         }
         println!();
     }
@@ -156,7 +159,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 
 ///Multiple-choice Quiz
 fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
-    println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example)");
+    println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
     loop {
         //select a random item
         let vocaitem = select_item(data);
