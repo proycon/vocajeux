@@ -4,6 +4,7 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+extern crate regex;
 
 use std::fs;
 use std::error::Error;
@@ -12,6 +13,7 @@ use std::iter::Iterator;
 use std::io::BufRead;
 use clap::{App, Arg, SubCommand};
 use md5::{compute,Digest};
+use regex::Regex;
 
 /// Vocabulary Item data structure
 #[derive(Serialize, Deserialize)]
@@ -79,8 +81,20 @@ fn getinputline() -> Option<String> {
     }
 }
 
+
+fn checktranslation(input: &String, reference: &String) -> bool {
+    for candidate in  Regex::new(r"\b[\w\s]+\b").unwrap().find_iter(reference) {
+        let candidate = candidate.as_str().to_lowercase();
+        if candidate == input.to_lowercase() {
+            return true;
+        }
+    }
+    false
+}
+
 ///Quiz
 fn quiz(data: &VocaList, phon: bool) {
+    println!("QUIZ (type p for phonetic transcription, x for example)");
     let guesses = 3;
     loop {
         //select a random item
@@ -94,9 +108,18 @@ fn quiz(data: &VocaList, phon: bool) {
         for _ in 0..guesses {
             //get response from user
             if let Some(response) = getinputline() {
-                correct = response == vocaitem.translation;
-                if correct {
-                    break;
+                if response == "p" {
+                    println!("{}", vocaitem.transcription);
+                    continue;
+                } else if response == "x" {
+                    println!("{}", vocaitem.example);
+                    continue;
+                } else {
+                    correct = checktranslation(&response, &vocaitem.translation);
+                    if correct {
+                        println!("Correct!");
+                        break;
+                    }
                 }
             } else {
                 break;
@@ -106,6 +129,7 @@ fn quiz(data: &VocaList, phon: bool) {
         if !correct {
             println!("The correct translation is: {}", vocaitem.translation);
         }
+        println!();
     }
 }
 
@@ -132,6 +156,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 
 ///Multiple-choice Quiz
 fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
+    println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example)");
     loop {
         //select a random item
         let vocaitem = select_item(data);
@@ -145,18 +170,28 @@ fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
             println!("{} - {}", i+1, option.translation);
         }
         let mut correct = false;
-        //get response from user
-        if let Some(response) = getinputline() {
-            if let Ok(responseindex) = response.parse::<usize>() {
-                correct = responseindex -1 == correctindex as usize;
-            } else {
-                println!("Enter a number!");
+        loop {
+            //get response from user
+            if let Some(response) = getinputline() {
+                if response == "p" {
+                    println!("{}", vocaitem.transcription);
+                    continue;
+                } else if response == "x" {
+                    println!("{}", vocaitem.example);
+                    continue;
+                } else if let Ok(responseindex) = response.parse::<usize>() {
+                    correct = responseindex -1 == correctindex as usize;
+                    break;
+                } else {
+                    println!("Enter a number!");
+                }
             }
         }
         match correct {
             true => println!("Correct!"),
             false => println!("Incorrect; the correct translation is: {}", vocaitem.translation)
         }
+        println!();
     }
 }
 
