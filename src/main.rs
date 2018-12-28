@@ -7,12 +7,14 @@ extern crate serde_derive;
 extern crate regex;
 extern crate md5;
 extern crate ansi_term;
+extern crate dirs;
 
 use std::fs;
 use std::error::Error;
 use std::fmt;
 use std::iter::Iterator;
 use std::io::{BufRead,Write};
+use std::path::{Path,PathBuf};
 use clap::{App, Arg, SubCommand};
 use md5::{compute,Digest};
 use regex::Regex;
@@ -202,18 +204,35 @@ fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
     }
 }
 
+/// Returns an index of available vocabulary sets
+fn getdataindex() -> Vec<PathBuf> {
+    let mut index: Vec<PathBuf> = Vec::new();
+    let configpath = dirs::config_dir().unwrap();
+    let datapath = PathBuf::from(configpath).join("vocajeux").join("data");
+    if datapath.exists() {
+        for file in datapath.read_dir().expect("Unable to read dir") {
+            if let Ok(file) = file {
+                index.push(file.path());
+            }
+        }
+    }
+    index
+}
 
 fn main() {
     let argmatches = App::new("Vocajeux")
         .version("0.1")
         .author("Maarten van Gompel (proycon) <proycon@anaproy.nl>")
         .about("Games for learning vocabulary")
-        .arg(Arg::with_name("file")
-            .help("Vocabulary file to load")
-            .index(1)
-            .required(true))
+        .subcommand(SubCommand::with_name("catalogue")
+                    .about("Lists all available datasets")
+        )
         .subcommand(SubCommand::with_name("list")
                     .about("Lists all words")
+                    .arg(Arg::with_name("file")
+                        .help("Vocabulary file to load, either a full path or from in ~/.config/vocajeux/data/")
+                        .index(1)
+                        .required(true))
                     .arg(Arg::with_name("translations")
                          .help("Show translations")
                          .long("translation")
@@ -226,6 +245,10 @@ fn main() {
                     ))
         .subcommand(SubCommand::with_name("quiz")
                     .about("Simple quiz")
+                    .arg(Arg::with_name("file")
+                        .help("Vocabulary file to load, either a full path or from in ~/.config/vocajeux/data/")
+                        .index(1)
+                        .required(true))
                     .arg(Arg::with_name("phon")
                          .help("Show phonetic transcription")
                          .long("phon")
@@ -239,21 +262,42 @@ fn main() {
                     ))
         .get_matches();
 
-    if let Some(filename) = argmatches.value_of("file") {
-        eprintln!("Loading {}", filename);
-        match parse_vocadata(filename) {
-            Ok(data) => {
-                //see what subcommand to perform
-                match argmatches.subcommand_name() {
-                    Some("list") => {
-                        if let Some(submatches) = argmatches.subcommand_matches("list") {
+    let dataindex = getdataindex();
+    match argmatches.subcommand_name() {
+        None => {
+            eprintln!("No command given, see --help for syntax");
+            std::process::exit(1);
+        },
+        Some("catalogue") =>  {
+            for file in dataindex.iter() {
+                println!("{}", file.to_str().unwrap());
+            }
+        },
+        _ => { // all other subcommands that take a file parameter
+            let submatches = argmatches.subcommand_matches(argmatches.subcommand_name().unwrap()).unwrap();
+            let filename = submatches.value_of("file").expect("Expected filename");
+            let mut datafile: Option<&str> = None;
+            if Path::new(filename).exists() {
+                eprintln!("Loading {}", filename);
+                datafile = Some(filename);
+            } else {
+                if let Some(founditem) = dataindex.iter().find(|e| e.file_stem().unwrap() == filename) {
+                    datafile = founditem.to_str();
+                }
+            }
+            if datafile == None {
+                eprintln!("Data file not found");
+                std::process::exit(1);
+            }
+
+            match parse_vocadata(datafile.unwrap()) {
+                Ok(data) => {
+                    //see what subcommand to perform
+                    match argmatches.subcommand_name() {
+                        Some("list") => {
                             list(&data, submatches.is_present("translations"), submatches.is_present("phon"));
-                        } else {
-                            list(&data, false, false);
-                        }
-                    },
-                    Some("quiz") => {
-                        if let Some(submatches) = argmatches.subcommand_matches("quiz") {
+                        },
+                        Some("quiz") => {
                             if submatches.is_present("multiplechoice") {
                                 if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                     let choicecount: u32 = choicecount.parse().unwrap();
@@ -262,17 +306,15 @@ fn main() {
                             } else {
                                 quiz(&data, submatches.is_present("phon"));
                             }
-                        } else {
-                            quiz(&data, false);
+                        },
+                        _ => {
+                            eprintln!("Nothing to do!");
                         }
-                    },
-                    _ => {
-                        eprintln!("Nothing to do!");
                     }
+                },
+                Err(err) => {
+                    eprintln!("Error: {}", err);
                 }
-            },
-            Err(err) => {
-                eprintln!("Error: {}", err);
             }
         }
     }
