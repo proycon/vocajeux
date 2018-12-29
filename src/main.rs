@@ -16,6 +16,7 @@ use std::iter::Iterator;
 use std::io::{BufRead,Write};
 use std::path::{Path,PathBuf};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use clap::{App, Arg, SubCommand};
 use md5::{compute,Digest};
 use regex::Regex;
@@ -89,7 +90,8 @@ fn select_item<'a>(data: &'a VocaList, mut optscoredata: Option<&mut VocaScore>)
     let choice: usize = choice as usize;
     let id: String = format!("{:x}",data.items[choice].id());
     if let Some(ref mut scoredata) = optscoredata {
-        scoredata.lastseen.insert(id,0);
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
+        scoredata.lastseen.insert(id,now);
     }
     &data.items[choice]
 }
