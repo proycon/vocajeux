@@ -15,6 +15,7 @@ use std::fmt;
 use std::iter::Iterator;
 use std::io::{BufRead,Write};
 use std::path::{Path,PathBuf};
+use std::collections::HashMap;
 use clap::{App, Arg, SubCommand};
 use md5::{compute,Digest};
 use regex::Regex;
@@ -35,6 +36,12 @@ struct VocaItem {
 #[derive(Serialize, Deserialize)]
 struct VocaList {
     items: Vec<VocaItem>
+}
+
+#[derive(Serialize, Deserialize)]
+struct VocaScore {
+    scores: HashMap<String,f64>,
+    lastseen: HashMap<String,u64>
 }
 
 //we implement the Display trait so we can print VocaItems
@@ -59,6 +66,13 @@ fn parse_vocadata(filename: &str) -> Result<VocaList, Box<dyn Error>> {
     Ok(data)
 }
 
+/// Load score file
+fn load_scoredata(filename: &str) -> Result<VocaScore, Box<dyn Error>> {
+    let data = fs::read_to_string(filename)?;
+    let mut data: VocaScore = serde_json::from_str(data.as_str())?; //(shadowing)
+    Ok(data)
+}
+
 /// List/Print the contents of the Vocabulary List to standard output
 fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
     for item in data.items.iter() {
@@ -70,9 +84,13 @@ fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
 }
 
 ///Select a word
-fn select_item(data: &VocaList) -> &VocaItem {
+fn select_item<'a>(data: &'a VocaList, mut optscoredata: Option<&mut VocaScore>) -> &'a VocaItem {
     let choice: f64 = rand::random::<f64>() * (data.items.len() as f64);
     let choice: usize = choice as usize;
+    let id: String = format!("{:x}",data.items[choice].id());
+    if let Some(ref mut scoredata) = optscoredata {
+        scoredata.lastseen.insert(id,0);
+    }
     &data.items[choice]
 }
 
@@ -108,12 +126,17 @@ fn quizprompt(vocaitem: &VocaItem, phon: bool) {
 }
 
 ///Quiz
-fn quiz(data: &VocaList, phon: bool) {
+fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
     println!("QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
     let guesses = 3;
     loop {
         //select a random item
-        let vocaitem = select_item(data);
+        let vocaitem;
+        if let Some(ref mut scoredata) = optscoredata {
+            vocaitem = select_item(data, Some(scoredata));
+        } else {
+            vocaitem = select_item(data, None);
+        }
         quizprompt(vocaitem, phon);
         let mut correct = false;
         for _ in 0..guesses {
@@ -154,7 +177,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
             options.push(correctitem);
         } else {
             loop {
-                let candidate = select_item(data);
+                let candidate  = select_item(data, None);
                 if candidate.id() != correctitem.id() {
                     options.push(candidate);
                     break;
@@ -166,11 +189,16 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 }
 
 ///Multiple-choice Quiz
-fn multiquiz(data: &VocaList, choicecount: u32, phon: bool) {
+fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choicecount: u32, phon: bool) {
     println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
     loop {
         //select a random item
-        let vocaitem = select_item(data);
+        let vocaitem;
+        if let Some(ref mut scoredata) = optscoredata {
+            vocaitem = select_item(data, Some(scoredata));
+        } else {
+            vocaitem = select_item(data, None);
+        }
         quizprompt(vocaitem, phon);
         let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
         for (i, option) in options.iter().enumerate() {
@@ -219,6 +247,28 @@ fn getdataindex() -> Vec<PathBuf> {
     index
 }
 
+fn getdatafile(name: &str) -> Option<PathBuf> {
+    let configpath = dirs::config_dir().unwrap();
+    let mut filename: String = name.to_owned();
+    filename.push_str(".json");
+    let datapath = PathBuf::from(configpath).join("vocajeux").join("data").join(filename);
+    match datapath.exists() {
+        true => Some(datapath),
+        false => None
+    }
+}
+
+fn getscorefile(name: &str) -> Option<PathBuf> {
+    let configpath = dirs::config_dir().unwrap();
+    let mut filename: String = name.to_owned();
+    filename.push_str(".json");
+    let datapath = PathBuf::from(configpath).join("vocajeux").join("scores").join(filename);
+    match datapath.exists() {
+        true => Some(datapath),
+        false => None
+    }
+}
+
 fn main() {
     let argmatches = App::new("Vocajeux")
         .version("0.1")
@@ -262,13 +312,13 @@ fn main() {
                     ))
         .get_matches();
 
-    let dataindex = getdataindex();
     match argmatches.subcommand_name() {
         None => {
             eprintln!("No command given, see --help for syntax");
             std::process::exit(1);
         },
         Some("catalogue") =>  {
+            let dataindex = getdataindex();
             for file in dataindex.iter() {
                 println!("{}", file.to_str().unwrap());
             }
@@ -276,21 +326,29 @@ fn main() {
         _ => { // all other subcommands that take a file parameter
             let submatches = argmatches.subcommand_matches(argmatches.subcommand_name().unwrap()).unwrap();
             let filename = submatches.value_of("file").expect("Expected filename");
-            let mut datafile: Option<&str> = None;
+            let mut datafile: Option<String> = None;
             if Path::new(filename).exists() {
                 eprintln!("Loading {}", filename);
-                datafile = Some(filename);
+                datafile = Some(filename.to_string());
             } else {
-                if let Some(founditem) = dataindex.iter().find(|e| e.file_stem().unwrap() == filename) {
-                    datafile = founditem.to_str();
+                if let Some(founditem) = getdatafile(filename) {
+                    //Option<PathBuf> to Option<String>
+                    datafile = Some(founditem.to_str().unwrap().to_string());
                 }
+                //This would iterate over all available files but is unnecessarily expensive
+                //compared to the above:
+                /*if let Some(founditem) = dataindex.iter().find(|e| e.file_stem().unwrap() == filename) {
+                    datafile = founditem.to_str();
+                }*/
             }
             if datafile == None {
                 eprintln!("Data file not found");
                 std::process::exit(1);
             }
+            let filebase = PathBuf::from(datafile.clone().unwrap().as_str());
+            let scorefile = getscorefile(filebase.to_str().unwrap());
 
-            match parse_vocadata(datafile.unwrap()) {
+            match parse_vocadata(&datafile.unwrap()) {
                 Ok(data) => {
                     //see what subcommand to perform
                     match argmatches.subcommand_name() {
@@ -298,13 +356,14 @@ fn main() {
                             list(&data, submatches.is_present("translations"), submatches.is_present("phon"));
                         },
                         Some("quiz") => {
+                            let mut scoredata: Option<VocaScore> = load_scoredata(scorefile.unwrap().to_str().unwrap()).ok();
                             if submatches.is_present("multiplechoice") {
                                 if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                     let choicecount: u32 = choicecount.parse().unwrap();
-                                    multiquiz(&data, choicecount, submatches.is_present("phon"));
+                                    multiquiz(&data, scoredata.as_mut(), choicecount, submatches.is_present("phon"));
                                 }
                             } else {
-                                quiz(&data, submatches.is_present("phon"));
+                                quiz(&data, scoredata.as_mut() , submatches.is_present("phon"));
                             }
                         },
                         _ => {
