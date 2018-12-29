@@ -85,15 +85,30 @@ fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
 }
 
 ///Select a word
-fn select_item<'a>(data: &'a VocaList, mut optscoredata: Option<&mut VocaScore>) -> &'a VocaItem {
+fn select_item(data: &VocaList) -> &VocaItem {
     let choice: f64 = rand::random::<f64>() * (data.items.len() as f64);
     let choice: usize = choice as usize;
-    let id: String = format!("{:x}",data.items[choice].id());
+    &data.items[choice]
+}
+
+
+fn score_item(item: &VocaItem, mut optscoredata: Option<&mut VocaScore>, correct: bool) {
+    let id: String = format!("{:x}",item.id());
     if let Some(ref mut scoredata) = optscoredata {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
-        scoredata.lastseen.insert(id,now);
+        scoredata.lastseen.insert(id.clone(),now);
+        if let Some(x) = scoredata.scores.get_mut(&id) {
+            match correct {
+                true => *x = *x / 2.0,
+                false => *x = *x * 2.0
+            }
+        } else {
+            let _ = match correct { //(is there a way without the let statementt to discard the result?)
+                true => scoredata.scores.insert(id,0.5),
+                false => scoredata.scores.insert(id,2.0)
+            };
+        }
     }
-    &data.items[choice]
 }
 
 fn getinputline() -> Option<String> {
@@ -133,12 +148,7 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
     let guesses = 3;
     loop {
         //select a random item
-        let vocaitem;
-        if let Some(ref mut scoredata) = optscoredata {
-            vocaitem = select_item(data, Some(scoredata));
-        } else {
-            vocaitem = select_item(data, None);
-        }
+        let vocaitem = select_item(data);
         quizprompt(vocaitem, phon);
         let mut correct = false;
         for _ in 0..guesses {
@@ -162,6 +172,9 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
             }
             println!("{} Try again (or ENTER to skip)", Red.paint("Incorrect!"));
         }
+        if let Some(ref mut scoredata) = optscoredata {
+            score_item(&vocaitem, Some(scoredata), correct);
+        }
         if !correct {
             println!("The correct translation is: {}", Green.paint(&vocaitem.translation));
         }
@@ -179,7 +192,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
             options.push(correctitem);
         } else {
             loop {
-                let candidate  = select_item(data, None);
+                let candidate  = select_item(data);
                 if candidate.id() != correctitem.id() {
                     options.push(candidate);
                     break;
@@ -195,12 +208,7 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
     println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
     loop {
         //select a random item
-        let vocaitem;
-        if let Some(ref mut scoredata) = optscoredata {
-            vocaitem = select_item(data, Some(scoredata));
-        } else {
-            vocaitem = select_item(data, None);
-        }
+        let vocaitem = select_item(data);
         quizprompt(vocaitem, phon);
         let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
         for (i, option) in options.iter().enumerate() {
@@ -229,6 +237,9 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
         match correct {
             true => println!("{}", Green.paint("Correct!")),
             false => println!("{}; the correct translation is: {}", Red.paint("Incorrect"), Green.paint(&vocaitem.translation))
+        }
+        if let Some(ref mut scoredata) = optscoredata {
+            score_item(&vocaitem, Some(scoredata), correct);
         }
         println!();
     }
