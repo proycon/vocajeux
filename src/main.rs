@@ -41,7 +41,8 @@ struct VocaList {
 
 #[derive(Serialize, Deserialize)]
 struct VocaScore {
-    scores: HashMap<String,f64>,
+    correct: HashMap<String,u32>,
+    incorrect: HashMap<String,u32>,
     lastseen: HashMap<String,u64>
 }
 
@@ -97,16 +98,10 @@ fn score_item(item: &VocaItem, mut optscoredata: Option<&mut VocaScore>, correct
     if let Some(ref mut scoredata) = optscoredata {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
         scoredata.lastseen.insert(id.clone(),now);
-        if let Some(x) = scoredata.scores.get_mut(&id) {
-            match correct {
-                true => *x = *x / 2.0,
-                false => *x = *x * 2.0
-            }
+        if correct {
+            *scoredata.correct.entry(id).or_insert(0) += 1;
         } else {
-            let _ = match correct { //(is there a way without the let statementt to discard the result?)
-                true => scoredata.scores.insert(id,0.5),
-                false => scoredata.scores.insert(id,2.0)
-            };
+            *scoredata.incorrect.entry(id).or_insert(0) += 1;
         }
     }
 }
