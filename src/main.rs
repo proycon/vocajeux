@@ -87,8 +87,16 @@ impl VocaList {
                 scoredata.score(item.id_as_string().as_str())
             }).sum();
             let choice: f64 = rand::random::<f64>() * sum;
-            let choice: usize = choice as usize;
-            &self.items[choice]
+            let mut score: f64 = 0.0; //cummulative score
+            let mut choiceindex: usize = 0;
+            for (i, item) in self.items.iter().enumerate() {
+                score += scoredata.score(item.id_as_string().as_str());
+                if score >= choice {
+                    choiceindex = i;
+                    break;
+                }
+            }
+            &self.items[choiceindex]
         } else {
             let choice: f64 = rand::random::<f64>() * (self.items.len() as f64);
             let choice: usize = choice as usize;
@@ -106,6 +114,8 @@ impl VocaScore {
         Ok(data)
     }
 
+    //Return the 'score' for an item, this corresponds to the probability it is presented, so
+    //the lower the score, the better a word is known
     fn score(&self, id: &str) -> f64 {
         let correct = *self.correct.get(id).or(Some(&0)).unwrap() + 1;
         let incorrect = *self.incorrect.get(id).or(Some(&0)).unwrap() + 1;
