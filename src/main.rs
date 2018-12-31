@@ -57,6 +57,9 @@ impl VocaItem {
     fn id(&self) -> md5::Digest {
         md5::compute(self.word.as_bytes())
     }
+    fn id_as_string(&self) -> String {
+        format!("{:x}",self.id())
+    }
 }
 
 impl VocaList {
@@ -78,33 +81,45 @@ impl VocaList {
     }
 
     ///Select a word
-    fn select_item(&self, optscoredata: Option<&VocaScore>) -> &VocaItem {
-        let choice: f64 = rand::random::<f64>() * (self.items.len() as f64);
-        let choice: usize = choice as usize;
-        &self.items[choice]
+    fn pick(&self, optscoredata: Option<&VocaScore>) -> &VocaItem {
+        if let Some(ref scoredata) = optscoredata {
+            let sum: f64 = self.items.iter().map(|item| {
+                scoredata.score(item.id_as_string().as_str())
+            }).sum();
+            let choice: f64 = rand::random::<f64>() * sum;
+            let choice: usize = choice as usize;
+            &self.items[choice]
+        } else {
+            let choice: f64 = rand::random::<f64>() * (self.items.len() as f64);
+            let choice: usize = choice as usize;
+            &self.items[choice]
+        }
     }
 }
 
 
+impl VocaScore {
+    /// Load score file
+    fn load(filename: &str) -> Result<VocaScore, Box<dyn Error>> {
+        let data = fs::read_to_string(filename)?;
+        let data: VocaScore = serde_json::from_str(data.as_str())?; //(shadowing)
+        Ok(data)
+    }
 
-/// Load score file
-fn load_scoredata(filename: &str) -> Result<VocaScore, Box<dyn Error>> {
-    let data = fs::read_to_string(filename)?;
-    let mut data: VocaScore = serde_json::from_str(data.as_str())?; //(shadowing)
-    Ok(data)
-}
+    fn score(&self, id: &str) -> f64 {
+        let correct = *self.correct.get(id).or(Some(&0)).unwrap() + 1;
+        let incorrect = *self.incorrect.get(id).or(Some(&0)).unwrap() + 1;
+        incorrect as f64 / correct as f64
+    }
 
-
-
-fn score_item(item: &VocaItem, mut optscoredata: Option<&mut VocaScore>, correct: bool) {
-    let id: String = format!("{:x}",item.id());
-    if let Some(ref mut scoredata) = optscoredata {
+    fn addscore(&mut self, item: &VocaItem, correct: bool) {
+        let id: String = item.id_as_string();
         let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
-        scoredata.lastseen.insert(id.clone(),now);
+        self.lastseen.insert(id.clone(),now);
         if correct {
-            *scoredata.correct.entry(id).or_insert(0) += 1;
+            *self.correct.entry(id).or_insert(0) += 1;
         } else {
-            *scoredata.incorrect.entry(id).or_insert(0) += 1;
+            *self.incorrect.entry(id).or_insert(0) += 1;
         }
     }
 }
@@ -148,9 +163,9 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
         //select a random item
         let vocaitem;
         if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.select_item(Some(scoredata));
+            vocaitem = data.pick(Some(scoredata));
         } else {
-            vocaitem = data.select_item(None);
+            vocaitem = data.pick(None);
         }
         quizprompt(vocaitem, phon);
         let mut correct = false;
@@ -176,7 +191,7 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
             println!("{} Try again (or ENTER to skip)", Red.paint("Incorrect!"));
         }
         if let Some(ref mut scoredata) = optscoredata {
-            score_item(&vocaitem, Some(scoredata), correct);
+            scoredata.addscore(&vocaitem, correct);
         }
         if !correct {
             println!("The correct translation is: {}", Green.paint(&vocaitem.translation));
@@ -195,7 +210,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
             options.push(correctitem);
         } else {
             loop {
-                let candidate  = data.select_item(None);
+                let candidate  = data.pick(None);
                 if candidate.id() != correctitem.id() {
                     options.push(candidate);
                     break;
@@ -213,9 +228,9 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
         //select a random item
         let vocaitem;
         if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.select_item(Some(scoredata));
+            vocaitem = data.pick(Some(scoredata));
         } else {
-            vocaitem = data.select_item(None);
+            vocaitem = data.pick(None);
         }
         quizprompt(vocaitem, phon);
         let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
@@ -247,7 +262,7 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
             false => println!("{}; the correct translation is: {}", Red.paint("Incorrect"), Green.paint(&vocaitem.translation))
         }
         if let Some(ref mut scoredata) = optscoredata {
-            score_item(&vocaitem, Some(scoredata), correct);
+            scoredata.addscore(&vocaitem, correct);
         }
         println!();
     }
@@ -377,7 +392,7 @@ fn main() {
                             data.list(submatches.is_present("translations"), submatches.is_present("phon"));
                         },
                         Some("quiz") => {
-                            let mut scoredata: Option<VocaScore> = load_scoredata(scorefile.unwrap().to_str().unwrap()).ok();
+                            let mut scoredata: Option<VocaScore> = VocaScore::load(scorefile.unwrap().to_str().unwrap()).ok();
                             if submatches.is_present("multiplechoice") {
                                 if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                     let choicecount: u32 = choicecount.parse().unwrap();
