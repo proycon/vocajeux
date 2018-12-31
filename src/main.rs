@@ -59,6 +59,24 @@ impl VocaItem {
     }
 }
 
+impl VocaList {
+    /// List/Print the contents of the Vocabulary List to standard output
+    fn list(&self, withtranslation: bool, withtranscription: bool) {
+        for item in self.items.iter() {
+            print!("{}", item);
+            if withtranscription { print!("\t{}", item.transcription) }
+            if withtranslation { print!("\t{}", item.translation) }
+            println!()
+        }
+    }
+
+    ///Select a word
+    fn select_item(&self, optscoredata: Option<&VocaScore>) -> &VocaItem {
+        let choice: f64 = rand::random::<f64>() * (self.items.len() as f64);
+        let choice: usize = choice as usize;
+        &self.items[choice]
+    }
+}
 
 
 /// Parse the vocabulary data file (JSON) into the VocaList structure
@@ -75,22 +93,6 @@ fn load_scoredata(filename: &str) -> Result<VocaScore, Box<dyn Error>> {
     Ok(data)
 }
 
-/// List/Print the contents of the Vocabulary List to standard output
-fn list(data: &VocaList, withtranslation: bool, withtranscription: bool) {
-    for item in data.items.iter() {
-        print!("{}", item);
-        if withtranscription { print!("\t{}", item.transcription) }
-        if withtranslation { print!("\t{}", item.translation) }
-        println!()
-    }
-}
-
-///Select a word
-fn select_item(data: &VocaList) -> &VocaItem {
-    let choice: f64 = rand::random::<f64>() * (data.items.len() as f64);
-    let choice: usize = choice as usize;
-    &data.items[choice]
-}
 
 
 fn score_item(item: &VocaItem, mut optscoredata: Option<&mut VocaScore>, correct: bool) {
@@ -143,7 +145,12 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
     let guesses = 3;
     loop {
         //select a random item
-        let vocaitem = select_item(data);
+        let vocaitem;
+        if let Some(ref scoredata) = optscoredata {
+            vocaitem = data.select_item(Some(scoredata));
+        } else {
+            vocaitem = data.select_item(None);
+        }
         quizprompt(vocaitem, phon);
         let mut correct = false;
         for _ in 0..guesses {
@@ -187,7 +194,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
             options.push(correctitem);
         } else {
             loop {
-                let candidate  = select_item(data);
+                let candidate  = data.select_item(None);
                 if candidate.id() != correctitem.id() {
                     options.push(candidate);
                     break;
@@ -203,7 +210,12 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
     println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
     loop {
         //select a random item
-        let vocaitem = select_item(data);
+        let vocaitem;
+        if let Some(ref scoredata) = optscoredata {
+            vocaitem = data.select_item(Some(scoredata));
+        } else {
+            vocaitem = data.select_item(None);
+        }
         quizprompt(vocaitem, phon);
         let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
         for (i, option) in options.iter().enumerate() {
@@ -361,7 +373,7 @@ fn main() {
                     //see what subcommand to perform
                     match argmatches.subcommand_name() {
                         Some("list") => {
-                            list(&data, submatches.is_present("translations"), submatches.is_present("phon"));
+                            data.list(submatches.is_present("translations"), submatches.is_present("phon"));
                         },
                         Some("quiz") => {
                             let mut scoredata: Option<VocaScore> = load_scoredata(scorefile.unwrap().to_str().unwrap()).ok();
