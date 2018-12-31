@@ -1,138 +1,18 @@
 extern crate clap;
 extern crate rand;
 extern crate serde;
-extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
 extern crate regex;
-extern crate md5;
 extern crate ansi_term;
 extern crate dirs;
 
-use std::fs;
-use std::error::Error;
-use std::fmt;
 use std::iter::Iterator;
 use std::io::{BufRead,Write};
 use std::path::{Path,PathBuf};
-use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 use clap::{App, Arg, SubCommand};
-use md5::{compute,Digest};
 use regex::Regex;
 use ansi_term::Colour::{Red,Green, Blue};
+use vocajeux::*;
 
-/// Vocabulary Item data structure
-#[derive(Serialize, Deserialize)]
-struct VocaItem {
-    word: String,
-    transcription: String,
-    translation: String,
-    example: String,
-    comment: String,
-    tags: Vec<String>
-}
-
-/// Vocabulary List data structure
-#[derive(Serialize, Deserialize)]
-struct VocaList {
-    items: Vec<VocaItem>
-}
-
-#[derive(Serialize, Deserialize)]
-struct VocaScore {
-    correct: HashMap<String,u32>,
-    incorrect: HashMap<String,u32>,
-    lastseen: HashMap<String,u64>
-}
-
-//we implement the Display trait so we can print VocaItems
-impl fmt::Display for VocaItem {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"{}",self.word)
-    }
-}
-
-impl VocaItem {
-    fn id(&self) -> md5::Digest {
-        md5::compute(self.word.as_bytes())
-    }
-    fn id_as_string(&self) -> String {
-        format!("{:x}",self.id())
-    }
-}
-
-impl VocaList {
-    /// Parse the vocabulary data file (JSON) into the VocaList structure
-    fn parse(filename: &str) -> Result<VocaList, Box<dyn Error>> {
-        let data = fs::read_to_string(filename)?;
-        let data: VocaList = serde_json::from_str(data.as_str())?; //(shadowing)
-        Ok(data)
-    }
-
-    /// List/Print the contents of the Vocabulary List to standard output
-    fn list(&self, withtranslation: bool, withtranscription: bool) {
-        for item in self.items.iter() {
-            print!("{}", item);
-            if withtranscription { print!("\t{}", item.transcription) }
-            if withtranslation { print!("\t{}", item.translation) }
-            println!()
-        }
-    }
-
-    ///Select a word
-    fn pick(&self, optscoredata: Option<&VocaScore>) -> &VocaItem {
-        if let Some(ref scoredata) = optscoredata {
-            let sum: f64 = self.items.iter().map(|item| {
-                scoredata.score(item.id_as_string().as_str())
-            }).sum();
-            let choice: f64 = rand::random::<f64>() * sum;
-            let mut score: f64 = 0.0; //cummulative score
-            let mut choiceindex: usize = 0;
-            for (i, item) in self.items.iter().enumerate() {
-                score += scoredata.score(item.id_as_string().as_str());
-                if score >= choice {
-                    choiceindex = i;
-                    break;
-                }
-            }
-            &self.items[choiceindex]
-        } else {
-            let choice: f64 = rand::random::<f64>() * (self.items.len() as f64);
-            let choice: usize = choice as usize;
-            &self.items[choice]
-        }
-    }
-}
-
-
-impl VocaScore {
-    /// Load score file
-    fn load(filename: &str) -> Result<VocaScore, Box<dyn Error>> {
-        let data = fs::read_to_string(filename)?;
-        let data: VocaScore = serde_json::from_str(data.as_str())?; //(shadowing)
-        Ok(data)
-    }
-
-    //Return the 'score' for an item, this corresponds to the probability it is presented, so
-    //the lower the score, the better a word is known
-    fn score(&self, id: &str) -> f64 {
-        let correct = *self.correct.get(id).or(Some(&0)).unwrap() + 1;
-        let incorrect = *self.incorrect.get(id).or(Some(&0)).unwrap() + 1;
-        incorrect as f64 / correct as f64
-    }
-
-    fn addscore(&mut self, item: &VocaItem, correct: bool) {
-        let id: String = item.id_as_string();
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
-        self.lastseen.insert(id.clone(),now);
-        if correct {
-            *self.correct.entry(id).or_insert(0) += 1;
-        } else {
-            *self.incorrect.entry(id).or_insert(0) += 1;
-        }
-    }
-}
 
 fn getinputline() -> Option<String> {
     print!(">>> ");
@@ -164,6 +44,7 @@ fn quizprompt(vocaitem: &VocaItem, phon: bool) {
         println!("{}: {}", Blue.paint("Translate"), vocaitem);
     }
 }
+
 
 ///Quiz
 fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
@@ -315,6 +196,7 @@ fn getscorefile(name: &str) -> Option<PathBuf> {
     }
 }
 
+
 fn main() {
     let argmatches = App::new("Vocajeux")
         .version("0.1")
@@ -424,4 +306,3 @@ fn main() {
         }
     }
 }
-
