@@ -60,6 +60,13 @@ impl VocaItem {
 }
 
 impl VocaList {
+    /// Parse the vocabulary data file (JSON) into the VocaList structure
+    fn parse(filename: &str) -> Result<VocaList, Box<dyn Error>> {
+        let data = fs::read_to_string(filename)?;
+        let data: VocaList = serde_json::from_str(data.as_str())?; //(shadowing)
+        Ok(data)
+    }
+
     /// List/Print the contents of the Vocabulary List to standard output
     fn list(&self, withtranslation: bool, withtranscription: bool) {
         for item in self.items.iter() {
@@ -79,12 +86,6 @@ impl VocaList {
 }
 
 
-/// Parse the vocabulary data file (JSON) into the VocaList structure
-fn parse_vocadata(filename: &str) -> Result<VocaList, Box<dyn Error>> {
-    let data = fs::read_to_string(filename)?;
-    let data: VocaList = serde_json::from_str(data.as_str())?; //(shadowing)
-    Ok(data)
-}
 
 /// Load score file
 fn load_scoredata(filename: &str) -> Result<VocaScore, Box<dyn Error>> {
@@ -368,7 +369,7 @@ fn main() {
             let filebase = PathBuf::from(datafile.clone().unwrap().as_str());
             let scorefile = getscorefile(filebase.to_str().unwrap());
 
-            match parse_vocadata(&datafile.unwrap()) {
+            match VocaList::parse(&datafile.unwrap()) {
                 Ok(data) => {
                     //see what subcommand to perform
                     match argmatches.subcommand_name() {
