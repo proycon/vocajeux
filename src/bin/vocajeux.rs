@@ -284,7 +284,10 @@ fn main() {
                             data.list(submatches.is_present("translations"), submatches.is_present("phon"));
                         },
                         Some("quiz") => {
-                            let mut scoredata: Option<VocaScore> = VocaScore::load(scorefile.unwrap().to_str().unwrap()).ok();
+                            let mut scoredata: Option<VocaScore> = match scorefile {
+                                Some(scorefile) => VocaScore::load(scorefile.to_str().unwrap()).ok(),
+                                None => None,
+                            };
                             if submatches.is_present("multiplechoice") {
                                 if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                     let choicecount: u32 = choicecount.parse().unwrap();
