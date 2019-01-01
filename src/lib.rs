@@ -107,6 +107,11 @@ impl VocaScore {
         Ok(data)
     }
 
+    pub fn save(&self, filename: &str) -> std::io::Result<()> {
+        let data: String = serde_json::to_string(self)?;
+        fs::write(filename, data)
+    }
+
     //Return the 'score' for an item, this corresponds to the probability it is presented, so
     //the lower the score, the better a word is known
     pub fn score(&self, id: &str) -> f64 {

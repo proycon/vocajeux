@@ -189,15 +189,11 @@ fn getdatafile(name: &str) -> Option<PathBuf> {
     }
 }
 
-fn getscorefile(name: &str) -> Option<PathBuf> {
+fn getscorefile(name: &str) -> PathBuf {
     let configpath = dirs::config_dir().unwrap();
     let mut filename: String = name.to_owned();
     filename.push_str(".json");
-    let datapath = PathBuf::from(configpath).join("vocajeux").join("scores").join(filename);
-    match datapath.exists() {
-        true => Some(datapath),
-        false => None
-    }
+    PathBuf::from(configpath).join("vocajeux").join("scores").join(filename)
 }
 
 
@@ -288,17 +284,20 @@ fn main() {
                             data.list(submatches.is_present("translations"), submatches.is_present("phon"));
                         },
                         Some("quiz") => {
-                            let mut scoredata: Option<VocaScore> = match scorefile {
-                                Some(scorefile) => VocaScore::load(scorefile.to_str().unwrap()).ok(),
-                                None => Some(VocaScore { ..Default::default() } ),
+                            let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
+                                true => VocaScore::load(scorefile.to_str().unwrap()).ok(),
+                                false => Some(VocaScore { ..Default::default() } ),
                             };
                             if submatches.is_present("multiplechoice") {
                                 if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                     let choicecount: u32 = choicecount.parse().unwrap();
-                                    multiquiz(&data, scoredata.as_mut(), choicecount, submatches.is_present("phon"));
+                                    multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"));
                                 }
                             } else {
-                                quiz(&data, scoredata.as_mut() , submatches.is_present("phon"));
+                                quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"));
+                            }
+                            if let Some(ref scoredata) = optscoredata {
+                                scoredata.save(scorefile.to_str().unwrap()).expect("Unable to save");
                             }
                         },
                         _ => {
