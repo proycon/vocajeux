@@ -126,3 +126,13 @@ impl VocaScore {
         }
     }
 }
+
+impl Default for VocaScore {
+    fn default() -> VocaScore {
+        VocaScore {
+            correct: HashMap::new(),
+            incorrect: HashMap::new(),
+            lastseen: HashMap::new()
+        }
+    }
+}

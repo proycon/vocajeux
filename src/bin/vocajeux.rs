@@ -48,7 +48,7 @@ fn quizprompt(vocaitem: &VocaItem, phon: bool) {
 
 ///Quiz
 fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
-    println!("QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
+    println!("QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
     let guesses = 3;
     loop {
         //select a random item
@@ -69,6 +69,8 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
                 } else if response == "x" {
                     println!("{}", vocaitem.example);
                     continue;
+                } else if response == "q" {
+                    return;
                 } else {
                     correct = checktranslation(&response, &vocaitem.translation);
                     if correct {
@@ -114,7 +116,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 
 ///Multiple-choice Quiz
 fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choicecount: u32, phon: bool) {
-    println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, ENTER to skip)");
+    println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
     loop {
         //select a random item
         let vocaitem;
@@ -138,6 +140,8 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
                 } else if response == "x" {
                     println!("{}", vocaitem.example);
                     continue;
+                } else if response == "q" {
+                    return;
                 } else if let Ok(responseindex) = response.parse::<usize>() {
                     correct = responseindex -1 == correctindex as usize;
                     break;
@@ -208,7 +212,7 @@ fn main() {
         .subcommand(SubCommand::with_name("list")
                     .about("Lists all words")
                     .arg(Arg::with_name("file")
-                        .help("Vocabulary file to load, either a full path or from in ~/.config/vocajeux/data/")
+                        .help("Vocabulary file to load, either a full path or from ~/.config/vocajeux/data/")
                         .index(1)
                         .required(true))
                     .arg(Arg::with_name("translations")
@@ -224,7 +228,7 @@ fn main() {
         .subcommand(SubCommand::with_name("quiz")
                     .about("Simple quiz")
                     .arg(Arg::with_name("file")
-                        .help("Vocabulary file to load, either a full path or from in ~/.config/vocajeux/data/")
+                        .help("Vocabulary file to load, either a full path or from ~/.config/vocajeux/data/")
                         .index(1)
                         .required(true))
                     .arg(Arg::with_name("phon")
@@ -286,7 +290,7 @@ fn main() {
                         Some("quiz") => {
                             let mut scoredata: Option<VocaScore> = match scorefile {
                                 Some(scorefile) => VocaScore::load(scorefile.to_str().unwrap()).ok(),
-                                None => None,
+                                None => Some(VocaScore { ..Default::default() } ),
                             };
                             if submatches.is_present("multiplechoice") {
                                 if let Some(choicecount) = submatches.value_of("multiplechoice") {
