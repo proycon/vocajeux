@@ -173,7 +173,7 @@ fn parsematchresponse(vocaitems: &Vec<&VocaItem>, mappings: &Vec<u8>, response: 
         let second: u8 = *second - 0x61u8;
         if firstchar.is_ascii_digit() {
             if secondchar.is_ascii_alphabetic() {
-                println!("{} in? {:?}", (first as usize),mappings);
+                println!("{}={} in {:?}.. solved={:?}", (first as usize), (second as usize),mappings, solved);
                 if let Some(mapped) = mappings.get(first as usize) {
                     if !solved.contains(&first) {
                         let correct: bool = *mapped == second;
@@ -222,23 +222,26 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
         //create a random order for presentation of the translations
         let mut mappings: Vec<u8> = (0..matchcount).collect();
         thread_rng().shuffle(&mut mappings);
-
-        for (i, vocaitem) in vocaitems.iter().enumerate() {
-            if phon {
-                println!("{}) {} ({})", i+1, vocaitem.word, vocaitem.transcription);
-            } else {
-                println!("{}) {}", i+1, vocaitem.word);
-            }
-        }
-        println!("---match with:---");
-        for (i, mappedindex) in mappings.iter().enumerate() {
-            if let Some(vocaitem) = vocaitems.get(*mappedindex as usize) {
-                let c: char = (0x61u8 + i as u8) as char;
-                println!("{}) {}", c, vocaitem.translation);
-            }
-        }
         let mut solved: Vec<u8> = Vec::new();
+
+
         loop {
+            for (i, vocaitem) in vocaitems.iter().enumerate() {
+                if solved.get(i) == None {
+                    if phon {
+                        println!("{}) {} ({})", i+1, vocaitem.word, vocaitem.transcription);
+                    } else {
+                        println!("{}) {}", i+1, vocaitem.word);
+                    }
+                }
+            }
+            println!("---match with:---");
+            for (i, mappedindex) in mappings.iter().enumerate() {
+                if let Some(vocaitem) = vocaitems.get(*mappedindex as usize) {
+                    let c: char = (0x61u8 + i as u8) as char;
+                    println!("{}) {}", c, vocaitem.translation);
+                }
+            }
             //get response from user
             if let Some(response) = getinputline() {
                 if response == "q" {
