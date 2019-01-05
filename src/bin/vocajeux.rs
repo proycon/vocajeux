@@ -164,9 +164,41 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
     }
 }
 
+fn parsematchresponse(vocaitems: &Vec<&VocaItem>, mappings: &Vec<u8>, response: String, optscoredata: &mut Option<&mut VocaScore>, solved: &mut Vec<u8>) -> bool {
+    let bytes: Vec<u8> = response.into_bytes();
+    if let (Some(first), Some(second)) = (bytes.get(0), bytes.get(1)) {
+        let firstchar: char = *first as char;
+        let secondchar: char = *second as char;
+        if firstchar.is_ascii_digit() {
+            if secondchar.is_ascii_alphabetic() {
+                if let Some(mapped) = mappings.get(*first as usize - 1) {
+                    let correct: bool = *mapped == (*second - 0x61u8);
+                    if correct {
+                        solved.push(*first);
+                        println!("{}", Green.paint("Correct!"));
+                    } else {
+                        println!("{}", Red.paint("Wrong!"));
+                    }
+                    if let Some(ref mut scoredata) = optscoredata {
+                        if let Some(vocaitem) = vocaitems.get(*first as usize - 1) {
+                            scoredata.addscore(vocaitem, correct);
+                        }
+                    }
+                    return true;
+                }
+            } else {
+                println!("Expected a letter in the second position (for example: 1a)");
+            }
+        } else {
+            println!("Expected a digit in the first position (for example: 1a)");
+        }
+    }
+    false
+}
+
 ///Match quiz
-fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcount: u32, phon: bool) {
-    println!("MATCH QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
+fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcount: u8, phon: bool) {
+    println!("MATCH QUIZ (Enter a match by entering a number and a letter, enter q to quit, s to skip)");
     loop {
         let mut vocaitems: Vec<&VocaItem> = Vec::new();
         for _i in 0..matchcount {
@@ -179,17 +211,36 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
             vocaitems.push(vocaitem);
         }
         //create a random order for presentation of the translations
-        let mut mappings: Vec<u32> = (0..matchcount).collect();
+        let mut mappings: Vec<u8> = (0..matchcount).collect();
         thread_rng().shuffle(&mut mappings);
 
         for (i, vocaitem) in vocaitems.iter().enumerate() {
-            println!("{} - {}", i+1, vocaitem.word);
+            if phon {
+                println!("{}) {} ({})", i+1, vocaitem.word, vocaitem.transcription);
+            } else {
+                println!("{}) {}", i+1, vocaitem.word);
+            }
         }
-
+        println!("---match with:---");
         for (i, mappedindex) in mappings.iter().enumerate() {
             if let Some(vocaitem) = vocaitems.get(*mappedindex as usize) {
                 let c: char = (0x61u8 + i as u8) as char;
-                println!("{} - {}", i+1, vocaitem.translation);
+                println!("{}) {}", c, vocaitem.translation);
+            }
+        }
+        let mut solved: Vec<u8> = Vec::new();
+        loop {
+            //get response from user
+            if let Some(response) = getinputline() {
+                if response == "q" {
+                    return;
+                } else {
+                    if parsematchresponse(&vocaitems, &mappings, response, &mut optscoredata, &mut solved) {
+
+                    }
+                }
+            } else {
+                break;
             }
         }
     }
@@ -358,7 +409,7 @@ fn main() {
                                 },
                                 Some("matchquiz") => {
                                     if let Some(matchcount) = submatches.value_of("number") {
-                                        let matchcount: u32 = matchcount.parse().unwrap();
+                                        let matchcount: u8 = matchcount.parse().unwrap();
                                         matchquiz(&data, optscoredata.as_mut(), matchcount, submatches.is_present("phon"));
                                     }
                                 },
