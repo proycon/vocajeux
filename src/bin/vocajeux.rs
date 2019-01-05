@@ -10,6 +10,7 @@ use std::io::{BufRead,Write};
 use std::path::{Path,PathBuf};
 use clap::{App, Arg, SubCommand};
 use regex::Regex;
+use rand::{thread_rng,Rng};
 use ansi_term::Colour::{Red,Green, Blue};
 use vocajeux::*;
 
@@ -163,6 +164,37 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
     }
 }
 
+///Match quiz
+fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcount: u32, phon: bool) {
+    println!("MATCH QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
+    loop {
+        let mut vocaitems: Vec<&VocaItem> = Vec::new();
+        for _i in 0..matchcount {
+            let vocaitem;
+            if let Some(ref scoredata) = optscoredata {
+                vocaitem = data.pick(Some(scoredata));
+            } else {
+                vocaitem = data.pick(None);
+            }
+            vocaitems.push(vocaitem);
+        }
+        //create a random order for presentation of the translations
+        let mut mappings: Vec<u32> = (0..matchcount).collect();
+        thread_rng().shuffle(&mut mappings);
+
+        for (i, vocaitem) in vocaitems.iter().enumerate() {
+            println!("{} - {}", i+1, vocaitem.word);
+        }
+
+        for (i, mappedindex) in mappings.iter().enumerate() {
+            if let Some(vocaitem) = vocaitems.get(*mappedindex as usize) {
+                let c: char = (0x61u8 + i as u8) as char;
+                println!("{} - {}", i+1, vocaitem.translation);
+            }
+        }
+    }
+}
+
 /// Returns an index of available vocabulary sets
 fn getdataindex() -> Vec<PathBuf> {
     let mut index: Vec<PathBuf> = Vec::new();
@@ -222,7 +254,7 @@ fn main() {
                          .short("p")
                     ))
         .subcommand(SubCommand::with_name("quiz")
-                    .about("Simple quiz")
+                    .about("Simple open quiz")
                     .arg(Arg::with_name("file")
                         .help("Vocabulary file to load, either a full path or from ~/.config/vocajeux/data/")
                         .index(1)
@@ -231,12 +263,41 @@ fn main() {
                          .help("Show phonetic transcription")
                          .long("phon")
                          .short("p")
-                    )
+                    ))
+        .subcommand(SubCommand::with_name("choicequiz")
+                    .about("Simple multiple-choice quiz")
+                    .arg(Arg::with_name("file")
+                        .help("Vocabulary file to load, either a full path or from ~/.config/vocajeux/data/")
+                        .index(1)
+                        .required(true))
                     .arg(Arg::with_name("multiplechoice")
                          .help("Multiple choice (number of choices)")
                          .long("multiplechoice")
                          .short("m")
                          .takes_value(true)
+                         .default_value("6")
+                    )
+                    .arg(Arg::with_name("phon")
+                         .help("Show phonetic transcription")
+                         .long("phon")
+                         .short("p")
+                    ))
+        .subcommand(SubCommand::with_name("matchquiz")
+                    .arg(Arg::with_name("file")
+                        .help("Vocabulary file to load, either a full path or from ~/.config/vocajeux/data/")
+                        .index(1)
+                        .required(true))
+                    .arg(Arg::with_name("number")
+                         .help("Number of pairs to match")
+                         .long("number")
+                         .short("n")
+                         .takes_value(true)
+                         .default_value("6")
+                    )
+                    .arg(Arg::with_name("phon")
+                         .help("Show phonetic transcription")
+                         .long("phon")
+                         .short("p")
                     ))
         .get_matches();
 
@@ -283,18 +344,28 @@ fn main() {
                         Some("list") => {
                             data.list(submatches.is_present("translations"), submatches.is_present("phon"));
                         },
-                        Some("quiz") => {
+                        Some("quiz") | Some("choicequiz") | Some("matchquiz") => {
                             let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
                                 true => VocaScore::load(scorefile.to_str().unwrap()).ok(),
                                 false => Some(VocaScore { ..Default::default() } ),
                             };
-                            if submatches.is_present("multiplechoice") {
-                                if let Some(choicecount) = submatches.value_of("multiplechoice") {
-                                    let choicecount: u32 = choicecount.parse().unwrap();
-                                    multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"));
-                                }
-                            } else {
-                                quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"));
+                            match argmatches.subcommand_name() {
+                                Some("choicequiz") => {
+                                    if let Some(choicecount) = submatches.value_of("multiplechoice") {
+                                        let choicecount: u32 = choicecount.parse().unwrap();
+                                        multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"));
+                                    }
+                                },
+                                Some("matchquiz") => {
+                                    if let Some(matchcount) = submatches.value_of("number") {
+                                        let matchcount: u32 = matchcount.parse().unwrap();
+                                        matchquiz(&data, optscoredata.as_mut(), matchcount, submatches.is_present("phon"));
+                                    }
+                                },
+                                Some("quiz") => {
+                                    quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"));
+                                },
+                                _ => {}
                             }
                             if let Some(ref scoredata) = optscoredata {
                                 scoredata.save(scorefile.to_str().unwrap()).expect("Unable to save");
