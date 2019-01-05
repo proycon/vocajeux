@@ -168,23 +168,32 @@ fn parsematchresponse(vocaitems: &Vec<&VocaItem>, mappings: &Vec<u8>, response: 
     let bytes: Vec<u8> = response.into_bytes();
     if let (Some(first), Some(second)) = (bytes.get(0), bytes.get(1)) {
         let firstchar: char = *first as char;
+        let first: u8 = *first - 0x31u8;
         let secondchar: char = *second as char;
+        let second: u8 = *second - 0x61u8;
         if firstchar.is_ascii_digit() {
             if secondchar.is_ascii_alphabetic() {
-                if let Some(mapped) = mappings.get(*first as usize - 1) {
-                    let correct: bool = *mapped == (*second - 0x61u8);
-                    if correct {
-                        solved.push(*first);
-                        println!("{}", Green.paint("Correct!"));
-                    } else {
-                        println!("{}", Red.paint("Wrong!"));
-                    }
-                    if let Some(ref mut scoredata) = optscoredata {
-                        if let Some(vocaitem) = vocaitems.get(*first as usize - 1) {
-                            scoredata.addscore(vocaitem, correct);
+                println!("{} in? {:?}", (first as usize),mappings);
+                if let Some(mapped) = mappings.get(first as usize) {
+                    if !solved.contains(&first) {
+                        let correct: bool = *mapped == second;
+                        if correct {
+                            solved.push(first);
+                            println!("{}", Green.paint("Correct!"));
+                        } else {
+                            println!("{}", Red.paint("Wrong!"));
                         }
+                        if let Some(ref mut scoredata) = optscoredata {
+                            if let Some(vocaitem) = vocaitems.get(first as usize) {
+                                scoredata.addscore(vocaitem, correct);
+                            }
+                        }
+                        return true;
+                    } else {
+                        println!("This one was already solved!");
                     }
-                    return true;
+                } else {
+                    eprintln!("Mapping not found");
                 }
             } else {
                 println!("Expected a letter in the second position (for example: 1a)");
@@ -236,7 +245,9 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
                     return;
                 } else {
                     if parsematchresponse(&vocaitems, &mappings, response, &mut optscoredata, &mut solved) {
-
+                        if solved.len() == matchcount as usize {
+                            break;
+                        }
                     }
                 }
             } else {
