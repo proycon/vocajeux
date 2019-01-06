@@ -50,6 +50,7 @@ fn quizprompt(vocaitem: &VocaItem, phon: bool) {
 ///Quiz
 fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
     println!("QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
+    println!("---------------------------------------------------------------------------------");
     let guesses = 3;
     loop {
         //select a random item
@@ -118,6 +119,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 ///Multiple-choice Quiz
 fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choicecount: u32, phon: bool) {
     println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
+    println!("-------------------------------------------------------------------------------------------------");
     loop {
         //select a random item
         let vocaitem;
@@ -190,16 +192,16 @@ fn parsematchresponse(vocaitems: &Vec<&VocaItem>, mappings: &Vec<u8>, response: 
                         }
                         return true;
                     } else {
-                        println!("This one was already solved!");
+                        println!("{}", Red.paint("This one was already solved!"));
                     }
                 } else {
-                    eprintln!("Mapping not found");
+                    eprintln!("{}", Red.paint("Invalid input"));
                 }
             } else {
-                println!("Expected a letter in the second position (for example: 1a)");
+                println!("{}", Red.paint("Expected a letter in the second position (for example: 1a)"));
             }
         } else {
-            println!("Expected a digit in the first position (for example: 1a)");
+            println!("{}", Red.paint("Expected a digit in the first position (for example: 1a)"));
         }
     }
     false
@@ -207,7 +209,8 @@ fn parsematchresponse(vocaitems: &Vec<&VocaItem>, mappings: &Vec<u8>, response: 
 
 ///Match quiz
 fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcount: u8, phon: bool) {
-    println!("MATCH QUIZ (Enter a match by entering a number and a letter, enter q to quit, s to skip)");
+    println!("MATCH QUIZ (Enter a match by entering a number and a letter, enter q to quit, ENTER to skip)");
+    println!("----------------------------------------------------------------------------------------");
     loop {
         let mut vocaitems: Vec<&VocaItem> = Vec::new();
         for _i in 0..matchcount {
@@ -241,7 +244,7 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
                     }
                 }
             }
-            println!("---match with:---");
+            println!("{}", Blue.paint("---match with:---"));
             //println!("{:?}.. solved={:?}", mappings, solved); //DEBUG
             for (i, mappedindex) in mappings.iter().enumerate() {
                 if !solvedanswers.contains(&(i as u8)) {
