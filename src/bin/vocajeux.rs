@@ -173,10 +173,10 @@ fn parsematchresponse(vocaitems: &Vec<&VocaItem>, mappings: &Vec<u8>, response: 
         let second: u8 = *second - 0x61u8;
         if firstchar.is_ascii_digit() {
             if secondchar.is_ascii_alphabetic() {
-                println!("{}={} in {:?}.. solved={:?}", (first as usize), (second as usize),mappings, solved);
-                if let Some(mapped) = mappings.get(first as usize) {
+                //println!("{}@{} in {:?}.. solved={:?}", (first as usize), (second as usize),mappings, solved); //DEBUG
+                if let Some(mapped) = mappings.get(second as usize) {
                     if !solved.contains(&first) {
-                        let correct: bool = *mapped == second;
+                        let correct: bool = *mapped == first;
                         if correct {
                             solved.push(first);
                             println!("{}", Green.paint("Correct!"));
@@ -220,26 +220,35 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
             vocaitems.push(vocaitem);
         }
         //create a random order for presentation of the translations
+        //values correspond to indices in vocaitems
         let mut mappings: Vec<u8> = (0..matchcount).collect();
         thread_rng().shuffle(&mut mappings);
         let mut solved: Vec<u8> = Vec::new();
+        let mut solvedanswers: Vec<u8> = Vec::new();
 
 
         loop {
             for (i, vocaitem) in vocaitems.iter().enumerate() {
-                if solved.get(i) == None {
+                if !solved.contains(&(i as u8)) {
                     if phon {
                         println!("{}) {} ({})", i+1, vocaitem.word, vocaitem.transcription);
                     } else {
                         println!("{}) {}", i+1, vocaitem.word);
                     }
+                } else {
+                    if let Some(solvedanswer) = mappings.iter().position(|&j| j == i as u8) {
+                        solvedanswers.push(solvedanswer as u8);
+                    }
                 }
             }
             println!("---match with:---");
+            //println!("{:?}.. solved={:?}", mappings, solved); //DEBUG
             for (i, mappedindex) in mappings.iter().enumerate() {
-                if let Some(vocaitem) = vocaitems.get(*mappedindex as usize) {
-                    let c: char = (0x61u8 + i as u8) as char;
-                    println!("{}) {}", c, vocaitem.translation);
+                if !solvedanswers.contains(&(i as u8)) {
+                    if let Some(vocaitem) = vocaitems.get(*mappedindex as usize) {
+                        let c: char = (0x61u8 + i as u8) as char;
+                        println!("{}) {}", c, vocaitem.translation);
+                    }
                 }
             }
             //get response from user
