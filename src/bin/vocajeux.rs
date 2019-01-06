@@ -14,6 +14,50 @@ use rand::{thread_rng,Rng};
 use ansi_term::Colour::{Red,Green, Blue};
 use vocajeux::*;
 
+///Flashcards
+fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
+    println!("FLASHCARDS (type ENTER to turn, q to quit)");
+    println!("---------------------------------------------------------------------------------------");
+    loop {
+        //select a random item
+        let vocaitem;
+        if let Some(ref scoredata) = optscoredata {
+            vocaitem = data.pick(Some(scoredata));
+        } else {
+            vocaitem = data.pick(None);
+        }
+        let mut turned = false;
+        let mut correct = false;
+        loop{
+            if turned {
+                println!("{}", vocaitem.transcription);
+                println!("{}", vocaitem.translation);
+                println!("{}", vocaitem.example);
+            } else {
+                quizprompt(vocaitem, phon);
+                println!("{}", vocaitem.example);
+            }
+            //get response from user
+            if let Some(response) = getinputline() {
+                if response == "0" {
+                    correct = false;
+                    break;
+                } else if response == "1" {
+                    correct = true;
+                    break;
+                } else {
+                    println!("{}", Red.paint("Invalid input"));
+                }
+            } else {
+                turned = !turned;
+            }
+        }
+        if let Some(ref mut scoredata) = optscoredata {
+            scoredata.addscore(&vocaitem, correct);
+        }
+        println!();
+    }
+}
 
 fn getinputline() -> Option<String> {
     print!(">>> ");
@@ -330,6 +374,17 @@ fn main() {
                          .long("phon")
                          .short("p")
                     ))
+        .subcommand(SubCommand::with_name("flashcards")
+                    .about("Flashcards")
+                    .arg(Arg::with_name("file")
+                        .help("Vocabulary file to load, either a full path or from ~/.config/vocajeux/data/")
+                        .index(1)
+                        .required(true))
+                    .arg(Arg::with_name("phon")
+                         .help("Show phonetic transcription")
+                         .long("phon")
+                         .short("p")
+                    ))
         .subcommand(SubCommand::with_name("quiz")
                     .about("Simple open quiz")
                     .arg(Arg::with_name("file")
@@ -421,7 +476,7 @@ fn main() {
                         Some("list") => {
                             data.list(submatches.is_present("translations"), submatches.is_present("phon"));
                         },
-                        Some("quiz") | Some("choicequiz") | Some("matchquiz") => {
+                        Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
                             let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
                                 true => VocaScore::load(scorefile.to_str().unwrap()).ok(),
                                 false => Some(VocaScore { ..Default::default() } ),
@@ -441,6 +496,9 @@ fn main() {
                                 },
                                 Some("quiz") => {
                                     quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"));
+                                },
+                                Some("flashcards") => {
+                                    flashcards(&data, optscoredata.as_mut() , submatches.is_present("phon"));
                                 },
                                 _ => {}
                             }

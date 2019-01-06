@@ -36,7 +36,8 @@ pub struct VocaList {
 pub struct VocaScore {
     pub correct: HashMap<String,u32>,
     pub incorrect: HashMap<String,u32>,
-    pub lastseen: HashMap<String,u64>
+    pub lastseen: HashMap<String,u64>,
+//    pub due: HashMap<String,u64>
 }
 
 //we implement the Display trait so we can print VocaItems
