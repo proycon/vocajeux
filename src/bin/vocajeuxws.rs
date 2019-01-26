@@ -24,5 +24,8 @@ fn app() -> App {
 }
 
 fn main() {
-
+    server::new(|| app())
+        .bind("127.0.0.1:8888")
+        .unwrap()
+        .run();
 }
