@@ -317,30 +317,28 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
 }
 
 
-fn getdatafile(name: &str) -> Option<PathBuf> {
-    let configpath = dirs::config_dir().unwrap();
-    let mut filename: String = name.to_owned();
-    filename.push_str(".json");
-    let datapath = PathBuf::from(configpath).join("vocajeux").join("data").join(filename);
-    match datapath.exists() {
-        true => Some(datapath),
-        false => None
-    }
-}
-
-fn getscorefile(name: &str) -> PathBuf {
-    let configpath = dirs::config_dir().unwrap();
-    let mut filename: String = name.to_owned();
-    filename.push_str(".json");
-    PathBuf::from(configpath).join("vocajeux").join("scores").join(filename)
-}
-
 
 fn main() {
+    let defaultdatadir = defaultdatadir();
+    let defaultscoredir = defaultscoredir();
     let argmatches = App::new("Vocajeux")
         .version("0.1")
         .author("Maarten van Gompel (proycon) <proycon@anaproy.nl>")
         .about("Games for learning vocabulary")
+        .arg(clap::Arg::with_name("datadir")
+            .help("Data directory (default is ~/.config/vocajeux/data/")
+            .short("d")
+            .long("dir")
+            .takes_value(true)
+            .default_value(defaultdatadir.to_str().unwrap())
+        )
+        .arg(clap::Arg::with_name("scoredir")
+            .help("Score directory (default is ~/.config/vocajeux/scores/")
+            .short("s")
+            .long("scoredir")
+            .takes_value(true)
+            .default_value(defaultscoredir.to_str().unwrap())
+        )
         .subcommand(SubCommand::with_name("catalogue")
                     .about("Lists all available datasets")
         )
@@ -419,6 +417,9 @@ fn main() {
                     ))
         .get_matches();
 
+    let datadir = PathBuf::from(argmatches.value_of("datadir").unwrap());
+    let scoredir = PathBuf::from(argmatches.value_of("scoredir").unwrap());
+
     match argmatches.subcommand_name() {
         None => {
             eprintln!("No command given, see --help for syntax");
@@ -433,27 +434,23 @@ fn main() {
         _ => { // all other subcommands that take a file parameter
             let submatches = argmatches.subcommand_matches(argmatches.subcommand_name().unwrap()).unwrap();
             let filename = submatches.value_of("file").expect("Expected filename");
-            let mut datafile: Option<String> = None;
-            if Path::new(filename).exists() {
+            let datafile: Option<String> = if Path::new(filename).exists() {
                 eprintln!("Loading {}", filename);
-                datafile = Some(filename.to_string());
+                Some(filename.to_string())
             } else {
-                if let Some(founditem) = getdatafile(filename) {
-                    //Option<PathBuf> to Option<String>
-                    datafile = Some(founditem.to_str().unwrap().to_string());
-                }
+                getdatafile(filename, datadir).map(|f| f.to_str().unwrap().to_string()) //Option<PathBuf> to Option<String>
+            };
                 //This would iterate over all available files but is unnecessarily expensive
                 //compared to the above:
                 /*if let Some(founditem) = dataindex.iter().find(|e| e.file_stem().unwrap() == filename) {
                     datafile = founditem.to_str();
                 }*/
-            }
             if datafile == None {
                 eprintln!("Data file not found");
                 std::process::exit(1);
             }
             let filebase = PathBuf::from(datafile.clone().unwrap().as_str());
-            let scorefile = getscorefile(filebase.to_str().unwrap());
+            let scorefile = getscorefile(filebase.to_str().unwrap(), scoredir);
 
             match VocaList::parse(&datafile.unwrap()) {
                 Ok(data) => {

@@ -144,6 +144,33 @@ impl Default for VocaScore {
     }
 }
 
+/// Return the default data directory
+pub fn defaultdatadir() -> PathBuf {
+    PathBuf::from(dirs::config_dir().unwrap()).join("vocajeux").join("data")
+}
+///
+/// Return the default score directory
+pub fn defaultscoredir() -> PathBuf {
+    PathBuf::from(dirs::config_dir().unwrap()).join("vocajeux").join("scores")
+}
+
+pub fn getdatafile(name: &str, datapath: PathBuf) -> Option<PathBuf> {
+    let mut filename: String = name.to_owned();
+    filename.push_str(".json");
+    let datafile = datapath.join(filename);
+    match datafile.exists() {
+        true => Some(datapath),
+        false => None
+    }
+}
+
+pub fn getscorefile(name: &str, scorepath: PathBuf) -> PathBuf {
+    let mut filename: String = name.to_owned();
+    filename.push_str(".json");
+    scorepath.join(filename)
+}
+
+
 /// Returns an index of available vocabulary sets
 pub fn getdataindex(configpath_opt: Option<PathBuf>) -> Vec<PathBuf> {
     let mut index: Vec<PathBuf> = Vec::new();
