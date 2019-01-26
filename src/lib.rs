@@ -14,6 +14,7 @@ use std::iter::Iterator;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use md5::{compute,Digest};
+use std::path::{Path,PathBuf};
 
 /// Vocabulary Item data structure
 #[derive(Serialize, Deserialize)]
@@ -141,4 +142,24 @@ impl Default for VocaScore {
             lastseen: HashMap::new()
         }
     }
+}
+
+/// Returns an index of available vocabulary sets
+pub fn getdataindex(configpath_opt: Option<PathBuf>) -> Vec<PathBuf> {
+    let mut index: Vec<PathBuf> = Vec::new();
+    let configpath;
+    if let Some(configpath_some) = configpath_opt {
+        configpath = configpath_some;
+    } else {
+        configpath = dirs::config_dir().unwrap();
+    }
+    let datapath = PathBuf::from(configpath).join("vocajeux").join("data");
+    if datapath.exists() {
+        for file in datapath.read_dir().expect("Unable to read dir") {
+            if let Ok(file) = file {
+                index.push(file.path());
+            }
+        }
+    }
+    index
 }

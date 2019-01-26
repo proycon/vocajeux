@@ -316,20 +316,6 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
     }
 }
 
-/// Returns an index of available vocabulary sets
-fn getdataindex() -> Vec<PathBuf> {
-    let mut index: Vec<PathBuf> = Vec::new();
-    let configpath = dirs::config_dir().unwrap();
-    let datapath = PathBuf::from(configpath).join("vocajeux").join("data");
-    if datapath.exists() {
-        for file in datapath.read_dir().expect("Unable to read dir") {
-            if let Ok(file) = file {
-                index.push(file.path());
-            }
-        }
-    }
-    index
-}
 
 fn getdatafile(name: &str) -> Option<PathBuf> {
     let configpath = dirs::config_dir().unwrap();
@@ -439,7 +425,7 @@ fn main() {
             std::process::exit(1);
         },
         Some("catalogue") =>  {
-            let dataindex = getdataindex();
+            let dataindex = getdataindex(None);
             for file in dataindex.iter() {
                 println!("{}", file.to_str().unwrap());
             }
