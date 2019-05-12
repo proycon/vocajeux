@@ -16,7 +16,8 @@ use vocajeux::*;
 
 ///Flashcards
 fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
-    println!("FLASHCARDS (type ENTER to turn, q to quit)");
+    let instructions = "type ENTER to turn, q to quit, k for correct, i for incorrect";
+    println!("FLASHCARDS ({})", instructions);
     println!("---------------------------------------------------------------------------------------");
     loop {
         //select a random item
@@ -27,7 +28,7 @@ fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: b
             vocaitem = data.pick(None);
         }
         let mut turned = false;
-        let mut correct = false;
+        let correct;
         loop{
             if turned {
                 println!("{}", vocaitem.transcription);
@@ -39,12 +40,16 @@ fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: b
             }
             //get response from user
             if let Some(response) = getinputline() {
-                if response == "0" {
+                if response == "i" {
                     correct = false;
                     break;
-                } else if response == "1" {
+                } else if response == "k" {
                     correct = true;
                     break;
+                } else if response == "h" {
+                    println!("{}",instructions);
+                } else if response == "q" {
+                    return;
                 } else {
                     println!("{}", Red.paint("Invalid input"));
                 }
@@ -93,7 +98,8 @@ fn quizprompt(vocaitem: &VocaItem, phon: bool) {
 
 ///Quiz
 fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
-    println!("QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
+    let instructions = "type p for phonetic transcription, x for example, q to quit, ENTER to skip";
+    println!("QUIZ ({})", instructions);
     println!("---------------------------------------------------------------------------------");
     let guesses = 3;
     loop {
@@ -117,6 +123,9 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
                     continue;
                 } else if response == "q" {
                     return;
+                } else if response == "h" {
+                    println!("{}",instructions);
+                    continue;
                 } else {
                     correct = checktranslation(&response, &vocaitem.translation);
                     if correct {
@@ -162,7 +171,8 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 
 ///Multiple-choice Quiz
 fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choicecount: u32, phon: bool) {
-    println!("MULTIPLE-CHOICE QUIZ (type p for phonetic transcription, x for example, q to quit, ENTER to skip)");
+    let instructions = "type p for phonetic transcription, x for example, q to quit, ENTER to skip";
+    println!("MULTIPLE-CHOICE QUIZ ({})",instructions);
     println!("-------------------------------------------------------------------------------------------------");
     loop {
         //select a random item
@@ -189,6 +199,9 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
                     continue;
                 } else if response == "q" {
                     return;
+                } else if response == "h" {
+                    println!("{}",instructions);
+                    continue;
                 } else if let Ok(responseindex) = response.parse::<usize>() {
                     correct = responseindex -1 == correctindex as usize;
                     break;
