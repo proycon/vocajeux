@@ -397,6 +397,10 @@ fn main() {
                          .long("showtags")
                     )
                     .arg(arg_phon.clone()))
+        .subcommand(SubCommand::with_name("csv")
+                    .about("Output all data as CSV")
+                    .arg(arg_file.clone())
+                    .arg(arg_tags.clone()))
         .subcommand(SubCommand::with_name("add")
                     .about("Add a new word")
                     .arg(arg_file.clone())
@@ -536,6 +540,9 @@ fn main() {
                         match argmatches.subcommand_name() {
                             Some("list") => {
                                 data.list(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("showexamples"), submatches.is_present("showcomments"));
+                            },
+                            Some("csv") => {
+                                data.csv(filtertags.as_ref()).expect("Error during CSV serialisation");
                             },
                             Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
                                 let mut optscoredata: Option<VocaScore> = match scorefile.exists() {

@@ -6,10 +6,12 @@ extern crate serde_derive;
 extern crate regex;
 extern crate md5;
 extern crate dirs;
+extern crate csv;
 
 use std::fs;
 use std::error::Error;
 use std::fmt;
+use std::io;
 use std::iter::Iterator;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -124,6 +126,21 @@ impl VocaList {
                 println!()
             }
         }
+    }
+
+    ///Output all data as CSV
+    pub fn csv(&self, filtertags: Option<&Vec<&str>>) -> Result<(), Box<Error>> {
+        let mut wtr = csv::WriterBuilder::new()
+            .flexible(true)
+            .has_headers(false)
+            .from_writer(io::stdout());
+        for item in self.items.iter() {
+            if item.filter(filtertags) {
+                wtr.serialize(item)?;
+            }
+        };
+        wtr.flush()?;
+        Ok(())
     }
 
     ///Select a word
