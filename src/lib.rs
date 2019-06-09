@@ -55,6 +55,19 @@ impl VocaItem {
     pub fn id_as_string(&self) -> String {
         format!("{:x}",self.id())
     }
+
+    pub fn filter(&self, filtertags: Option<&Vec<&str>>) -> bool {
+        match filtertags {
+            Some(tags) => match tags.is_empty() {
+               false => {
+                   //do the actual matching
+                   self.tags.iter().any(|tag| tags.contains(&tag.as_str()))
+               },
+               true => true
+            },
+            None => true
+        }
+    }
 }
 
 impl VocaList {
@@ -66,12 +79,14 @@ impl VocaList {
     }
 
     /// List/Print the contents of the Vocabulary List to standard output
-    pub fn list(&self, withtranslation: bool, withtranscription: bool) {
+    pub fn list(&self, withtranslation: bool, withtranscription: bool, filtertags: Option<&Vec<&str>>) {
         for item in self.items.iter() {
-            print!("{}", item);
-            if withtranscription { print!("\t{}", item.transcription) }
-            if withtranslation { print!("\t{}", item.translation) }
-            println!()
+            if item.filter(filtertags) {
+                print!("{}", item);
+                if withtranscription { print!("\t{}", item.transcription) }
+                if withtranslation { print!("\t{}", item.translation) }
+                println!()
+            }
         }
     }
 
@@ -146,12 +161,12 @@ impl Default for VocaScore {
 
 /// Return the default data directory
 pub fn defaultdatadir() -> PathBuf {
-    PathBuf::from(dirs::config_dir().unwrap()).join("vocajeux").join("data")
+    PathBuf::from(dirs::config_dir().expect("Unable to find configuration dir")).join("vocajeux").join("data")
 }
 ///
 /// Return the default score directory
 pub fn defaultscoredir() -> PathBuf {
-    PathBuf::from(dirs::config_dir().unwrap()).join("vocajeux").join("scores")
+    PathBuf::from(dirs::config_dir().expect("Unable to find configuration dir")).join("vocajeux").join("scores")
 }
 
 pub fn getdatafile(name: &str, datapath: PathBuf) -> Option<PathBuf> {
@@ -178,7 +193,7 @@ pub fn getdataindex(configpath_opt: Option<PathBuf>) -> Vec<PathBuf> {
     if let Some(configpath_some) = configpath_opt {
         configpath = configpath_some;
     } else {
-        configpath = dirs::config_dir().unwrap();
+        configpath = dirs::config_dir().expect("Unable to find configuration dir");
     }
     let datapath = PathBuf::from(configpath).join("vocajeux").join("data");
     if datapath.exists() {

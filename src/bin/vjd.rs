@@ -22,7 +22,9 @@ struct AppState {
 
 fn index(_req: HttpRequest<AppState>) -> impl Responder {
     let dataindex = getdataindex(None);
-    let index = Index { catalogue: dataindex.iter().map(|f| String::from(f.file_stem().unwrap().to_str().unwrap())).collect() };
+    let index = Index {
+        catalogue: dataindex.iter().map( |f| String::from(f.file_stem().unwrap().to_str().unwrap()) ).collect()
+    };
     Json(index)
 }
 
@@ -58,6 +60,13 @@ fn main() {
             .long("dir")
             .takes_value(true)
             .default_value(defaultdatadir.to_str().unwrap())
+        )
+        .arg(clap::Arg::with_name("scoredir")
+            .help("Score directory (default is ~/.config/vocajeux/scores/")
+            .short("s")
+            .long("scoredir")
+            .takes_value(true)
+            .default_value(defaultscoredir.to_str().unwrap())
         )
         .arg(clap::Arg::with_name("host")
             .help("Host and port to bind to")

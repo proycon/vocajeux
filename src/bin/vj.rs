@@ -361,6 +361,11 @@ fn main() {
                         .help("Vocabulary file to load, either a full path or from ~/.config/vocajeux/data/")
                         .index(1)
                         .required(true))
+                    .arg(Arg::with_name("tags")
+                        .help("Filter on tags, comma separated list")
+                        .long("tags")
+                        .short("T")
+                    )
                     .arg(Arg::with_name("translations")
                          .help("Show translations")
                          .long("translation")
@@ -430,8 +435,8 @@ fn main() {
                     ))
         .get_matches();
 
-    let datadir = PathBuf::from(argmatches.value_of("datadir").unwrap());
-    let scoredir = PathBuf::from(argmatches.value_of("scoredir").unwrap());
+    let datadir = PathBuf::from(argmatches.value_of("datadir").expect("Invalid data dir"));
+    let scoredir = PathBuf::from(argmatches.value_of("scoredir").expect("Invalid score dir"));
 
     match argmatches.subcommand_name() {
         None => {
@@ -464,29 +469,32 @@ fn main() {
             }
             let filebase = PathBuf::from(datafile.clone().unwrap().as_str());
             let scorefile = getscorefile(filebase.to_str().unwrap(), scoredir);
+            let filtertags: Option<Vec<&str>> = submatches.value_of("tags").map(|tagstring: &str| {
+                tagstring.split_terminator('.').collect()
+            });
 
             match VocaList::parse(&datafile.unwrap()) {
                 Ok(data) => {
                     //see what subcommand to perform
                     match argmatches.subcommand_name() {
                         Some("list") => {
-                            data.list(submatches.is_present("translations"), submatches.is_present("phon"));
+                            data.list(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref());
                         },
                         Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
                             let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
-                                true => VocaScore::load(scorefile.to_str().unwrap()).ok(),
+                                true => VocaScore::load(scorefile.to_str().expect("Invalid score file")).ok(),
                                 false => Some(VocaScore { ..Default::default() } ),
                             };
                             match argmatches.subcommand_name() {
                                 Some("choicequiz") => {
                                     if let Some(choicecount) = submatches.value_of("multiplechoice") {
-                                        let choicecount: u32 = choicecount.parse().unwrap();
+                                        let choicecount: u32 = choicecount.parse().expect("Not a valid number for --multiplechoice");
                                         multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"));
                                     }
                                 },
                                 Some("matchquiz") => {
                                     if let Some(matchcount) = submatches.value_of("number") {
-                                        let matchcount: u8 = matchcount.parse().unwrap();
+                                        let matchcount: u8 = matchcount.parse().expect("Not a valid number for --number");
                                         matchquiz(&data, optscoredata.as_mut(), matchcount, submatches.is_present("phon"));
                                     }
                                 },
@@ -499,7 +507,7 @@ fn main() {
                                 _ => {}
                             }
                             if let Some(ref scoredata) = optscoredata {
-                                scoredata.save(scorefile.to_str().unwrap()).expect("Unable to save");
+                                scoredata.save(scorefile.to_str().expect("Invalid score file")).expect("Unable to save");
                             }
                         },
                         _ => {
