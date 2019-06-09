@@ -397,6 +397,39 @@ fn main() {
                          .long("showtags")
                     )
                     .arg(arg_phon.clone()))
+        .subcommand(SubCommand::with_name("add")
+                    .about("Add a new word")
+                    .arg(arg_file.clone())
+                    .arg(Arg::with_name("word")
+                        .help("The word")
+                        .index(2)
+                        .required(true))
+                    .arg(Arg::with_name("translation")
+                         .help("Translation")
+                         .long("translation")
+                         .takes_value(true)
+                         .short("t"))
+                    .arg(Arg::with_name("phon")
+                         .help("Phonetic transcription")
+                         .long("phon")
+                         .takes_value(true)
+                         .short("p"))
+                    .arg(Arg::with_name("example")
+                         .help("Example")
+                         .long("example")
+                         .takes_value(true)
+                         .short("x"))
+                    .arg(Arg::with_name("comment")
+                         .help("Comment")
+                         .long("comment")
+                         .takes_value(true)
+                         .short("C"))
+                    .arg(Arg::with_name("tags")
+                         .help("Tags (comma separated)")
+                         .long("tags")
+                         .takes_value(true)
+                         .short("T"))
+                    )
         .subcommand(SubCommand::with_name("flashcards")
                     .about("Flashcards")
                     .arg(arg_file.clone())
@@ -482,53 +515,68 @@ fn main() {
             let filtertags: Option<Vec<&str>> = submatches.value_of("tags").map(|tagstring: &str| {
                 tagstring.split_terminator(',').collect()
             });
-
-            match VocaList::parse(&datafile.unwrap()) {
-                Ok(data) => {
-                    //see what subcommand to perform
-                    match argmatches.subcommand_name() {
-                        Some("list") => {
-                            data.list(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("showexamples"), submatches.is_present("showcomments"));
-                        },
-                        Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
-                            let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
-                                true => VocaScore::load(scorefile.to_str().expect("Invalid score file")).ok(),
-                                false => Some(VocaScore { ..Default::default() } ),
-                            };
-                            match argmatches.subcommand_name() {
-                                Some("choicequiz") => {
-                                    if let Some(choicecount) = submatches.value_of("multiplechoice") {
-                                        let choicecount: u32 = choicecount.parse().expect("Not a valid number for --multiplechoice");
-                                        multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"), filtertags.as_ref());
-                                    }
-                                },
-                                Some("matchquiz") => {
-                                    if let Some(matchcount) = submatches.value_of("number") {
-                                        let matchcount: u8 = matchcount.parse().expect("Not a valid number for --number");
-                                        matchquiz(&data, optscoredata.as_mut(), matchcount, submatches.is_present("phon"), filtertags.as_ref());
-                                    }
-                                },
-                                Some("quiz") => {
-                                    quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"), filtertags.as_ref());
-                                },
-                                Some("flashcards") => {
-                                    flashcards(&data, optscoredata.as_mut() , submatches.is_present("phon"), filtertags.as_ref());
-                                },
-                                _ => {}
+            if let Some("add") = argmatches.subcommand_name() {
+                //open writable
+                let mut data = VocaList::parse(datafile.as_ref().unwrap()).expect("Unable to read data");
+                let word = submatches.value_of("word").unwrap().to_string();
+                let translation = submatches.value_of("translation");
+                let phon = submatches.value_of("phon");
+                let example = submatches.value_of("example");
+                let comment = submatches.value_of("comment");
+                let tags: Option<Vec<&str>> = submatches.value_of("tags").map(|tagstring: &str| {
+                    tagstring.split_terminator(',').collect()
+                });
+                data.append(word,  translation, phon, example, comment, tags.as_ref());
+                data.save(datafile.as_ref().unwrap()).expect("Unable to save");
+            } else {
+                //open read only
+                match VocaList::parse(datafile.as_ref().unwrap()) {
+                    Ok(data) => {
+                        //see what subcommand to perform
+                        match argmatches.subcommand_name() {
+                            Some("list") => {
+                                data.list(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("showexamples"), submatches.is_present("showcomments"));
+                            },
+                            Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
+                                let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
+                                    true => VocaScore::load(scorefile.to_str().expect("Invalid score file")).ok(),
+                                    false => Some(VocaScore { ..Default::default() } ),
+                                };
+                                match argmatches.subcommand_name() {
+                                    Some("choicequiz") => {
+                                        if let Some(choicecount) = submatches.value_of("multiplechoice") {
+                                            let choicecount: u32 = choicecount.parse().expect("Not a valid number for --multiplechoice");
+                                            multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"), filtertags.as_ref());
+                                        }
+                                    },
+                                    Some("matchquiz") => {
+                                        if let Some(matchcount) = submatches.value_of("number") {
+                                            let matchcount: u8 = matchcount.parse().expect("Not a valid number for --number");
+                                            matchquiz(&data, optscoredata.as_mut(), matchcount, submatches.is_present("phon"), filtertags.as_ref());
+                                        }
+                                    },
+                                    Some("quiz") => {
+                                        quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"), filtertags.as_ref());
+                                    },
+                                    Some("flashcards") => {
+                                        flashcards(&data, optscoredata.as_mut() , submatches.is_present("phon"), filtertags.as_ref());
+                                    },
+                                    _ => {}
+                                }
+                                if let Some(ref scoredata) = optscoredata {
+                                    scoredata.save(scorefile.to_str().expect("Invalid score file")).expect("Unable to save");
+                                }
+                            },
+                            _ => {
+                                eprintln!("Nothing to do!");
                             }
-                            if let Some(ref scoredata) = optscoredata {
-                                scoredata.save(scorefile.to_str().expect("Invalid score file")).expect("Unable to save");
-                            }
-                        },
-                        _ => {
-                            eprintln!("Nothing to do!");
                         }
+                    },
+                    Err(err) => {
+                        eprintln!("Error: {}", err);
                     }
-                },
-                Err(err) => {
-                    eprintln!("Error: {}", err);
-                }
-            }
+                }//match
+            } //iflet
         }
     }
 }

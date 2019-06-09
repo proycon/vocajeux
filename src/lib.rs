@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use md5::{compute,Digest};
 use std::path::{Path,PathBuf};
+use std::iter::FromIterator;
 
 /// Vocabulary Item data structure
 #[derive(Serialize, Deserialize)]
@@ -76,6 +77,30 @@ impl VocaList {
         let data = fs::read_to_string(filename)?;
         let data: VocaList = serde_json::from_str(data.as_str())?; //(shadowing)
         Ok(data)
+    }
+
+    pub fn append(&mut self, word: String, translation: Option<&str>, transcription: Option<&str>, example: Option<&str>, comment: Option<&str>, tags: Option<&Vec<&str>>) {
+        let tags: Vec<String> = if let Some(ref tags) = tags {
+            tags.iter()
+                .map(|s| { s.to_string() })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let item = VocaItem {
+            word: word,
+            translation: translation.map(|s:&str| s.to_string()).unwrap_or(String::new()),
+            transcription: transcription.map(|s:&str| s.to_string()).unwrap_or(String::new()),
+            example: example.map(|s:&str| s.to_string()).unwrap_or(String::new()),
+            comment: comment.map(|s:&str| s.to_string()).unwrap_or(String::new()),
+            tags: tags,
+        };
+        self.items.push(item);
+    }
+
+    pub fn save(&self, filename: &str) -> std::io::Result<()> {
+        let data: String = serde_json::to_string(self)?;
+        fs::write(filename, data)
     }
 
     /// List/Print the contents of the Vocabulary List to standard output
