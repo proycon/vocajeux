@@ -91,27 +91,35 @@ impl VocaList {
     }
 
     ///Select a word
-    pub fn pick(&self, optscoredata: Option<&VocaScore>) -> &VocaItem {
-        if let Some(ref scoredata) = optscoredata {
-            let sum: f64 = self.items.iter().map(|item| {
-                scoredata.score(item.id_as_string().as_str())
-            }).sum();
-            let choice: f64 = rand::random::<f64>() * sum;
-            let mut score: f64 = 0.0; //cummulative score
-            let mut choiceindex: usize = 0;
-            for (i, item) in self.items.iter().enumerate() {
-                score += scoredata.score(item.id_as_string().as_str());
+    pub fn pick(&self, optscoredata: Option<&VocaScore>, filtertags: Option<&Vec<&str>>) -> &VocaItem {
+        let sum: f64 = self.items.iter().map(|item| {
+            if item.filter(filtertags) {
+                if let Some(ref scoredata) = optscoredata {
+                    scoredata.score(item.id_as_string().as_str())
+                } else {
+                    1.0
+                }
+            } else {
+                0.0
+            }
+        }).sum();
+        let choice: f64 = rand::random::<f64>() * sum;
+        let mut score: f64 = 0.0; //cummulative score
+        let mut choiceindex: usize = 0;
+        for (i, item) in self.items.iter().enumerate() {
+            if item.filter(filtertags) {
+                if let Some(ref scoredata) = optscoredata {
+                    score += scoredata.score(item.id_as_string().as_str());
+                } else {
+                    score += 1.0;
+                }
                 if score >= choice {
                     choiceindex = i;
                     break;
                 }
             }
-            &self.items[choiceindex]
-        } else {
-            let choice: f64 = rand::random::<f64>() * (self.items.len() as f64);
-            let choice: usize = choice as usize;
-            &self.items[choice]
         }
+        &self.items[choiceindex]
     }
 }
 

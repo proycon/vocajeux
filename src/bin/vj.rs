@@ -15,7 +15,7 @@ use ansi_term::Colour::{Red,Green, Blue};
 use vocajeux::*;
 
 ///Flashcards
-fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
+fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, filtertags: Option<&Vec<&str>>) {
     let instructions = "type ENTER to turn, q to quit, k for correct, i for incorrect";
     println!("FLASHCARDS ({})", instructions);
     println!("---------------------------------------------------------------------------------------");
@@ -23,9 +23,9 @@ fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: b
         //select a random item
         let vocaitem;
         if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.pick(Some(scoredata));
+            vocaitem = data.pick(Some(scoredata), filtertags);
         } else {
-            vocaitem = data.pick(None);
+            vocaitem = data.pick(None, filtertags);
         }
         let mut turned = false;
         let correct;
@@ -97,7 +97,7 @@ fn quizprompt(vocaitem: &VocaItem, phon: bool) {
 
 
 ///Quiz
-fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
+fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, filtertags: Option<&Vec<&str>>) {
     let instructions = "type p for phonetic transcription, x for example, q to quit, ENTER to skip";
     println!("QUIZ ({})", instructions);
     println!("---------------------------------------------------------------------------------");
@@ -106,9 +106,9 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
         //select a random item
         let vocaitem;
         if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.pick(Some(scoredata));
+            vocaitem = data.pick(Some(scoredata),filtertags);
         } else {
-            vocaitem = data.pick(None);
+            vocaitem = data.pick(None,filtertags);
         }
         quizprompt(vocaitem, phon);
         let mut correct = false;
@@ -148,7 +148,7 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool) {
     }
 }
 
-fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount: u32) -> (Vec<&'a VocaItem>, u32) {
+fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount: u32, filtertags: Option<&Vec<&str>>) -> (Vec<&'a VocaItem>, u32) {
     //reserve an index for the correct option
     let correctindex: f64 = rand::random::<f64>() * (optioncount as f64);
     let correctindex: u32 = correctindex as u32;
@@ -158,7 +158,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
             options.push(correctitem);
         } else {
             loop {
-                let candidate  = data.pick(None);
+                let candidate  = data.pick(None, filtertags);
                 if candidate.id() != correctitem.id() {
                     options.push(candidate);
                     break;
@@ -170,7 +170,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
 }
 
 ///Multiple-choice Quiz
-fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choicecount: u32, phon: bool) {
+fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choicecount: u32, phon: bool, filtertags: Option<&Vec<&str>>) {
     let instructions = "type p for phonetic transcription, x for example, q to quit, ENTER to skip";
     println!("MULTIPLE-CHOICE QUIZ ({})",instructions);
     println!("-------------------------------------------------------------------------------------------------");
@@ -178,12 +178,12 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
         //select a random item
         let vocaitem;
         if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.pick(Some(scoredata));
+            vocaitem = data.pick(Some(scoredata), filtertags);
         } else {
-            vocaitem = data.pick(None);
+            vocaitem = data.pick(None, filtertags);
         }
         quizprompt(vocaitem, phon);
-        let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount);
+        let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount, filtertags);
         for (i, option) in options.iter().enumerate() {
             println!("{} - {}", i+1, option.translation);
         }
@@ -265,7 +265,7 @@ fn parsematchresponse(vocaitems: &Vec<&VocaItem>, mappings: &Vec<u8>, response: 
 }
 
 ///Match quiz
-fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcount: u8, phon: bool) {
+fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcount: u8, phon: bool, filtertags: Option<&Vec<&str>>) {
     println!("MATCH QUIZ (Enter a match by entering a number and a letter, enter q to quit, ENTER to skip)");
     println!("----------------------------------------------------------------------------------------");
     loop {
@@ -273,9 +273,9 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
         for _i in 0..matchcount {
             let vocaitem;
             if let Some(ref scoredata) = optscoredata {
-                vocaitem = data.pick(Some(scoredata));
+                vocaitem = data.pick(Some(scoredata), filtertags);
             } else {
-                vocaitem = data.pick(None);
+                vocaitem = data.pick(None, filtertags);
             }
             vocaitems.push(vocaitem);
         }
@@ -470,7 +470,7 @@ fn main() {
             let filebase = PathBuf::from(datafile.clone().unwrap().as_str());
             let scorefile = getscorefile(filebase.to_str().unwrap(), scoredir);
             let filtertags: Option<Vec<&str>> = submatches.value_of("tags").map(|tagstring: &str| {
-                tagstring.split_terminator('.').collect()
+                tagstring.split_terminator(',').collect()
             });
 
             match VocaList::parse(&datafile.unwrap()) {
@@ -489,20 +489,20 @@ fn main() {
                                 Some("choicequiz") => {
                                     if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                         let choicecount: u32 = choicecount.parse().expect("Not a valid number for --multiplechoice");
-                                        multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"));
+                                        multiquiz(&data, optscoredata.as_mut(), choicecount, submatches.is_present("phon"), filtertags.as_ref());
                                     }
                                 },
                                 Some("matchquiz") => {
                                     if let Some(matchcount) = submatches.value_of("number") {
                                         let matchcount: u8 = matchcount.parse().expect("Not a valid number for --number");
-                                        matchquiz(&data, optscoredata.as_mut(), matchcount, submatches.is_present("phon"));
+                                        matchquiz(&data, optscoredata.as_mut(), matchcount, submatches.is_present("phon"), filtertags.as_ref());
                                     }
                                 },
                                 Some("quiz") => {
-                                    quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"));
+                                    quiz(&data, optscoredata.as_mut() , submatches.is_present("phon"), filtertags.as_ref());
                                 },
                                 Some("flashcards") => {
-                                    flashcards(&data, optscoredata.as_mut() , submatches.is_present("phon"));
+                                    flashcards(&data, optscoredata.as_mut() , submatches.is_present("phon"), filtertags.as_ref());
                                 },
                                 _ => {}
                             }
