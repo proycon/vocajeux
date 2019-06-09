@@ -8,6 +8,7 @@ extern crate dirs;
 use std::iter::Iterator;
 use std::io::{BufRead,Write};
 use std::path::{Path,PathBuf};
+use std::fs;
 use clap::{App, Arg, SubCommand};
 use regex::Regex;
 use rand::{thread_rng,Rng};
@@ -364,6 +365,11 @@ fn main() {
             .takes_value(true)
             .default_value(defaultscoredir.to_str().unwrap())
         )
+        .arg(Arg::with_name("debug")
+             .help("Debug")
+             .long("debug")
+             .short("D")
+        )
         .subcommand(SubCommand::with_name("catalogue")
                     .about("Lists all available datasets")
         )
@@ -375,6 +381,20 @@ fn main() {
                          .help("Show translations")
                          .long("translation")
                          .short("t")
+                    )
+                    .arg(Arg::with_name("examples")
+                         .help("Show examples")
+                         .long("showexamples")
+                         .short("x")
+                    )
+                    .arg(Arg::with_name("comments")
+                         .help("Show comments")
+                         .long("showcomments")
+                         .short("C")
+                    )
+                    .arg(Arg::with_name("showtags")
+                         .help("Show tags")
+                         .long("showtags")
                     )
                     .arg(arg_phon.clone()))
         .subcommand(SubCommand::with_name("flashcards")
@@ -412,8 +432,18 @@ fn main() {
                     .arg(arg_phon.clone()))
         .get_matches();
 
+    let debug = argmatches.is_present("debug");
+
     let datadir = PathBuf::from(argmatches.value_of("datadir").expect("Invalid data dir"));
+    fs::create_dir_all(&datadir).expect("Unable to create data directory");
     let scoredir = PathBuf::from(argmatches.value_of("scoredir").expect("Invalid score dir"));
+    fs::create_dir_all(&scoredir).expect("Unable to create score directory");
+
+    if debug {
+        eprintln!(" (data directory is {})", &datadir.to_str().unwrap());
+        eprintln!(" (score directory is {})", &scoredir.to_str().unwrap());
+    }
+
 
     match argmatches.subcommand_name() {
         None => {
@@ -433,8 +463,11 @@ fn main() {
                 eprintln!("Loading {}", filename);
                 Some(filename.to_string())
             } else {
-                getdatafile(filename, datadir).map(|f| f.to_str().unwrap().to_string()) //Option<PathBuf> to Option<String>
+                getdatafile(filename, datadir).map(|f| f.to_str().unwrap().to_string()) //Option<PathBuf> to Option<String>, this looks a bit convoluted to me, revisit later
             };
+            if debug {
+                eprintln!(" (data file is {})", datafile.as_ref().unwrap());
+            }
                 //This would iterate over all available files but is unnecessarily expensive
                 //compared to the above:
                 /*if let Some(founditem) = dataindex.iter().find(|e| e.file_stem().unwrap() == filename) {
@@ -455,7 +488,7 @@ fn main() {
                     //see what subcommand to perform
                     match argmatches.subcommand_name() {
                         Some("list") => {
-                            data.list(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref());
+                            data.list(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("showexamples"), submatches.is_present("showcomments"));
                         },
                         Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
                             let mut optscoredata: Option<VocaScore> = match scorefile.exists() {

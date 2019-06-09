@@ -79,12 +79,23 @@ impl VocaList {
     }
 
     /// List/Print the contents of the Vocabulary List to standard output
-    pub fn list(&self, withtranslation: bool, withtranscription: bool, filtertags: Option<&Vec<&str>>) {
+    pub fn list(&self, withtranslation: bool, withtranscription: bool, filtertags: Option<&Vec<&str>>, withtags: bool, withexample: bool, withcomment: bool) {
         for item in self.items.iter() {
             if item.filter(filtertags) {
                 print!("{}", item);
                 if withtranscription { print!("\t{}", item.transcription) }
                 if withtranslation { print!("\t{}", item.translation) }
+                if withexample { print!("\t{}", item.example) }
+                if withcomment { print!("\t{}", item.comment) }
+                if withtags {
+                    print!("\t");
+                    for (i, tag) in item.tags.iter().enumerate() {
+                        print!("{}", tag);
+                        if i < item.tags.len() - 1 {
+                            print!(",")
+                        }
+                    }
+                }
                 println!()
             }
         }
@@ -182,7 +193,7 @@ pub fn getdatafile(name: &str, datapath: PathBuf) -> Option<PathBuf> {
     filename.push_str(".json");
     let datafile = datapath.join(filename);
     match datafile.exists() {
-        true => Some(datapath),
+        true => Some(datafile),
         false => None
     }
 }
