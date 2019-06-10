@@ -22,11 +22,17 @@ use std::iter::FromIterator;
 /// Vocabulary Item data structure
 #[derive(Serialize, Deserialize)]
 pub struct VocaItem {
+    #[serde(default)] //deserialise missing fields to default empty values
     pub word: String,
+    #[serde(default)]
     pub transcription: String,
+    #[serde(default)]
     pub translation: String,
+    #[serde(default)]
     pub example: String,
+    #[serde(default)]
     pub comment: String,
+    #[serde(default)]
     pub tags: Vec<String>
 }
 
@@ -44,7 +50,7 @@ pub struct VocaScore {
 //    pub due: HashMap<String,u64>
 }
 
-//we implement the Display trait so we can print VocaItems
+///we implement the Display trait so we can print VocaItems
 impl fmt::Display for VocaItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,"{}",self.word)
@@ -81,6 +87,7 @@ impl VocaList {
         Ok(data)
     }
 
+    /// Add a new item to the vocabulary list
     pub fn append(&mut self, word: String, translation: Option<&str>, transcription: Option<&str>, example: Option<&str>, comment: Option<&str>, tags: Option<&Vec<&str>>) {
         let tags: Vec<String> = if let Some(ref tags) = tags {
             tags.iter()
@@ -185,13 +192,14 @@ impl VocaScore {
         Ok(data)
     }
 
+    ///Save a score file
     pub fn save(&self, filename: &str) -> std::io::Result<()> {
         let data: String = serde_json::to_string(self)?;
         fs::write(filename, data)
     }
 
-    //Return the 'score' for an item, this corresponds to the probability it is presented, so
-    //the lower the score, the better a word is known
+    ///Return the 'score' for an item, this corresponds to the probability it is presented, so
+    ///the lower the score, the better a word is known
     pub fn score(&self, id: &str) -> f64 {
         let correct = *self.correct.get(id).or(Some(&0)).unwrap() + 1;
         let incorrect = *self.incorrect.get(id).or(Some(&0)).unwrap() + 1;
@@ -219,6 +227,7 @@ impl Default for VocaScore {
         }
     }
 }
+
 
 /// Return the default data directory
 pub fn defaultdatadir() -> PathBuf {
