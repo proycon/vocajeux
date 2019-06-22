@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 #[derive(Serialize)]
 struct Index {
-    catalogue: Vec<String>
+    names: Vec<String>
 }
 
 #[derive(Clone)]
@@ -23,20 +23,56 @@ struct AppState {
 fn index(_req: HttpRequest<AppState>) -> impl Responder {
     let dataindex = getdataindex(None);
     let index = Index {
-        catalogue: dataindex.iter().map( |f| String::from(f.file_stem().unwrap().to_str().unwrap()) ).collect()
+        names: dataindex.iter().map( |f| String::from(f.file_stem().unwrap().to_str().unwrap()) ).collect()
     };
     Json(index)
 }
 
-fn get(req: HttpRequest<AppState>) -> impl Responder {
-    let dataset = req.match_info().get("dataset").unwrap();
-    let query = req.query();
-    if let Some(session) = query.get("session") {
-       return HttpResponse::Ok().finish();
+/// Show the entire vocabulary list
+fn show(req: HttpRequest<AppState>) -> impl Responder {
+    if Some(dataset) = req.match_info().get_decoded("dataset") {
+        match loadvocalist(&dataset) {
+            Ok(data) => {
+              Json(data)
+            },
+            Err(_msg) => { //TODO: propagate _msg
+              HttpResponse::NotFound().finish();
+            }
+        }
     } else {
-       return HttpResponse::Unauthorized().finish();
+        HttpResponse::NotFound().finish();
     }
 }
+
+fn loadvocalist(name: &str) -> Result<VocaList, Error<String> > {
+   if let Some(datafile) = getdatafile(name, defaultdatadir()) {
+        match VocaList::parse(datafile.to_str().unwrap()) {
+            Ok(data) => Ok(data),
+            Err(_) => Err("Parse error")
+        }
+    } else {
+        return Err("Name not found")
+    }
+}
+
+
+/// Pick a random word from a dataset
+/*
+fn pick(req: HttpRequest<AppState>) -> impl Responder {
+    if Some(dataset) = req.match_info().get_decoded("dataset") {
+        match loadvocalist(&dataset) {
+            Ok(data) => {
+              Json(data)
+            },
+            Err(_msg) => { //TODO: propagate _msg
+              HttpResponse::NotFound().finish();
+            }
+        }
+    } else {
+        HttpResponse::NotFound().finish();
+    }
+}
+*/
 
 /*
 fn app(state: AppState) -> App<AppState> {
@@ -85,7 +121,8 @@ fn main() {
     server::new(move || {
             App::with_state(state.clone())
                     .resource("/", |res| res.method(http::Method::GET).with(index))
-                    .resource("/{dataset}/", |res| res.method(http::Method::GET).with(get))
+                    .resource("/show/{dataset}/", |res| res.method(http::Method::GET).with(show))
+                    //.resource("/pick/{dataset}/{session}", |res| res.method(http::Method::GET).with(pick))
         })
         .bind(argmatches.value_of("bind").expect("Host and port"))
         .unwrap()
