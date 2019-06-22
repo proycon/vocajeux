@@ -5,9 +5,11 @@ extern crate serde_derive;
 extern crate actix_web;
 extern crate clap;
 
-use actix_web::{server,http,App,HttpRequest,HttpResponse, Responder, Json};
 use vocajeux::*;
-use std::sync::Arc;
+use actix_web::{server,http,App,HttpRequest,HttpResponse, Responder, Json};
+use std::path::{Path,PathBuf};
+use std::collections::HashMap;
+use std::sync::{Arc,Mutex,RwLock};
 use std::error::Error;
 use std::fmt;
 
@@ -19,7 +21,11 @@ struct Index {
 #[derive(Clone)]
 struct AppState {
     datadir: Arc<String>,
-    scoredir: Arc<String>
+    scoredir: Arc<String>,
+    data: Arc<RwLock<HashMap<String,VocaList>>>, //RwLock allows multiple read locks at the same time, Mutex doesn't distinguish between reading and writing and lock for all
+    scores: Arc<Mutex<HashMap<String,VocaScore>>>,
+    data_lastused: Arc<Mutex<HashMap<String,u64>>>,
+    scores_lastused: Arc<Mutex<HashMap<String,u64>>>
 }
 
 
@@ -50,7 +56,7 @@ fn index(_req: HttpRequest<AppState>) -> impl Responder {
 /// Show the entire vocabulary list
 fn show(req: HttpRequest<AppState>) -> impl Responder {
     if let Some(dataset) = req.match_info().get_decoded("dataset") {
-        match loadvocalist(&dataset) {
+        match loadvocalist(&req.state(), &dataset) {
             Ok(data) => {
                 Json(data).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
             },
@@ -63,11 +69,12 @@ fn show(req: HttpRequest<AppState>) -> impl Responder {
     }
 }
 
-fn loadvocalist(name: &str) -> Result<VocaList, Box<dyn Error> > {
-   if let Some(datafile) = getdatafile(name, defaultdatadir()) {
+fn loadvocalist(state: &AppState, name: &str) -> Result<VocaList, Box<dyn Error> > {
+   let datadir = &*state.datadir; //deref arc and borrow
+   if let Some(datafile) = getdatafile(name, PathBuf::from(datadir)) {
         VocaList::parse(datafile.to_str().unwrap())
     } else {
-        Err(NotFoundError.into())
+        Err(NotFoundError.into()) //into box
     }
 }
 
@@ -102,7 +109,7 @@ fn main() {
     let defaultdatadir = defaultdatadir();
     let defaultscoredir = defaultscoredir();
 
-    let argmatches = clap::App::new("Vocajeuxws")
+    let argmatches = clap::App::new("vjd")
         .version("0.1")
         .author("Maarten van Gompel (proycon) <proycon@anaproy.nl>")
         .about("Vocabulary webservice")
@@ -131,7 +138,11 @@ fn main() {
 
     let state = AppState {
                     datadir: Arc::new(argmatches.value_of("datadir").unwrap().to_string()),
-                    scoredir: Arc::new(argmatches.value_of("scoredir").unwrap().to_string())
+                    scoredir: Arc::new(argmatches.value_of("scoredir").unwrap().to_string()),
+                    data: Arc::new(RwLock::new(HashMap::new())),
+                    scores: Arc::new(Mutex::new(HashMap::new())),
+                    data_lastused: Arc::new(Mutex::new(HashMap::new())),
+                    scores_lastused: Arc::new(Mutex::new(HashMap::new()))
                 };
 
     server::new(move || {
