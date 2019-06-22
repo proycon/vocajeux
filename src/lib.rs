@@ -112,8 +112,8 @@ impl VocaList {
         fs::write(filename, data)
     }
 
-    /// List/Print the contents of the Vocabulary List to standard output
-    pub fn list(&self, withtranslation: bool, withtranscription: bool, filtertags: Option<&Vec<&str>>, withtags: bool, withexample: bool, withcomment: bool) {
+    /// Show the contents of the Vocabulary List; prints to to standard output
+    pub fn show(&self, withtranslation: bool, withtranscription: bool, filtertags: Option<&Vec<&str>>, withtags: bool, withexample: bool, withcomment: bool) {
         for item in self.items.iter() {
             if item.filter(filtertags) {
                 print!("{}", item);

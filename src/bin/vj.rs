@@ -370,11 +370,11 @@ fn main() {
              .long("debug")
              .short("D")
         )
-        .subcommand(SubCommand::with_name("catalogue")
+        .subcommand(SubCommand::with_name("ls")
                     .about("Lists all available datasets")
         )
-        .subcommand(SubCommand::with_name("list")
-                    .about("Lists all words")
+        .subcommand(SubCommand::with_name("show")
+                    .about("Show the entire vocabulary list")
                     .arg(arg_file.clone())
                     .arg(arg_tags.clone())
                     .arg(Arg::with_name("translations")
@@ -487,7 +487,7 @@ fn main() {
             eprintln!("No command given, see --help for syntax");
             std::process::exit(1);
         },
-        Some("catalogue") =>  {
+        Some("ls") =>  {
             let dataindex = getdataindex(None);
             for file in dataindex.iter() {
                 println!("{}", file.to_str().unwrap());
@@ -538,8 +538,8 @@ fn main() {
                     Ok(data) => {
                         //see what subcommand to perform
                         match argmatches.subcommand_name() {
-                            Some("list") => {
-                                data.list(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("showexamples"), submatches.is_present("showcomments"));
+                            Some("show") => {
+                                data.show(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("showexamples"), submatches.is_present("showcomments"));
                             },
                             Some("csv") => {
                                 data.csv(filtertags.as_ref()).expect("Error during CSV serialisation");
