@@ -8,6 +8,8 @@ extern crate clap;
 use actix_web::{server,http,App,HttpRequest,HttpResponse, Responder, Json};
 use vocajeux::*;
 use std::sync::Arc;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Serialize)]
 struct Index {
@@ -20,6 +22,23 @@ struct AppState {
     scoredir: Arc<String>
 }
 
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NotFoundError;
+
+impl fmt::Display for NotFoundError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.write_str(self.description())
+    }
+}
+
+impl Error for NotFoundError {
+    fn description(&self) -> &str {
+        "not found"
+    }
+}
+
+
 fn index(_req: HttpRequest<AppState>) -> impl Responder {
     let dataindex = getdataindex(None);
     let index = Index {
@@ -30,28 +49,25 @@ fn index(_req: HttpRequest<AppState>) -> impl Responder {
 
 /// Show the entire vocabulary list
 fn show(req: HttpRequest<AppState>) -> impl Responder {
-    if Some(dataset) = req.match_info().get_decoded("dataset") {
+    if let Some(dataset) = req.match_info().get_decoded("dataset") {
         match loadvocalist(&dataset) {
             Ok(data) => {
-              Json(data)
+                Json(data).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
             },
-            Err(_msg) => { //TODO: propagate _msg
-              HttpResponse::NotFound().finish();
+            Err(err) => {
+                HttpResponse::NotFound().body(format!("Not found: {}",err))
             }
         }
     } else {
-        HttpResponse::NotFound().finish();
+        HttpResponse::NotFound().finish()
     }
 }
 
-fn loadvocalist(name: &str) -> Result<VocaList, Error<String> > {
+fn loadvocalist(name: &str) -> Result<VocaList, Box<dyn Error> > {
    if let Some(datafile) = getdatafile(name, defaultdatadir()) {
-        match VocaList::parse(datafile.to_str().unwrap()) {
-            Ok(data) => Ok(data),
-            Err(_) => Err("Parse error")
-        }
+        VocaList::parse(datafile.to_str().unwrap())
     } else {
-        return Err("Name not found")
+        Err(NotFoundError.into())
     }
 }
 
