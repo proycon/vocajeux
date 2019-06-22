@@ -249,9 +249,17 @@ pub fn getdatafile(name: &str, datapath: PathBuf) -> Option<PathBuf> {
     }
 }
 
-pub fn getscorefile(name: &str, scorepath: PathBuf) -> PathBuf {
-    let mut filename: String = name.to_owned();
-    filename.push_str(".json");
+pub fn getscorefile(name: &str, scorepath: PathBuf, accesskey: Option<&str>) -> PathBuf {
+    let mut filename: String = if name.ends_with(".json") {
+        name[..name.len()-5].to_string()
+    } else {
+        name.to_string()
+    };
+    if let Some(accesskey) = accesskey {
+        filename.push_str(".");
+        filename.push_str(accesskey);
+    }
+    filename.push_str(".score.json");
     scorepath.join(filename)
 }
 

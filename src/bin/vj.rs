@@ -365,6 +365,12 @@ fn main() {
             .takes_value(true)
             .default_value(defaultscoredir.to_str().unwrap())
         )
+        .arg(Arg::with_name("accesskey")
+             .help("Access key")
+             .long("accesskey")
+             .takes_value(true)
+             .short("K")
+        )
         .arg(Arg::with_name("debug")
              .help("Debug")
              .long("debug")
@@ -502,9 +508,6 @@ fn main() {
             } else {
                 getdatafile(filename, datadir).map(|f| f.to_str().unwrap().to_string()) //Option<PathBuf> to Option<String>, this looks a bit convoluted to me, revisit later
             };
-            if debug {
-                eprintln!(" (data file is {})", datafile.as_ref().unwrap());
-            }
                 //This would iterate over all available files but is unnecessarily expensive
                 //compared to the above:
                 /*if let Some(founditem) = dataindex.iter().find(|e| e.file_stem().unwrap() == filename) {
@@ -513,9 +516,14 @@ fn main() {
             if datafile == None {
                 eprintln!("Data file not found");
                 std::process::exit(1);
+            } else if debug {
+                eprintln!(" (data file is {})", datafile.as_ref().unwrap());
             }
             let filebase = PathBuf::from(datafile.clone().unwrap().as_str());
-            let scorefile = getscorefile(filebase.to_str().unwrap(), scoredir);
+            let scorefile = getscorefile(filebase.to_str().unwrap(), scoredir, submatches.value_of("accesskey"));
+            if debug {
+                eprintln!(" (score file is {})", scorefile.to_str().unwrap());
+            }
             let filtertags: Option<Vec<&str>> = submatches.value_of("tags").map(|tagstring: &str| {
                 tagstring.split_terminator(',').collect()
             });
