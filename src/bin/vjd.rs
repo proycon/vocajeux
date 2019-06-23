@@ -107,7 +107,7 @@ fn loadvocalist(state: &AppState, dataset: &str) -> Result<VocaList, Box<dyn Err
     }
 }
 
-///Loads and returns a vocabulary scores
+///Loads and returns a vocabulary scoremap
 fn loadvocascore(state: &AppState, dataset: &str, sessionkey: &str) -> Result<VocaScore,Box<dyn Error> > {
     let scoredir = &*state.scoredir; //deref arc and borrow
     let scorefile = getscorefile(dataset, PathBuf::from(scoredir), Some(sessionkey));
@@ -212,7 +212,7 @@ fn main() {
             .takes_value(true)
             .default_value(defaultscoredir.to_str().unwrap())
         )
-        .arg(clap::Arg::with_name("host")
+        .arg(clap::Arg::with_name("bind")
             .help("Host and port to bind to")
             .short("b")
             .long("bind")
@@ -234,6 +234,7 @@ fn main() {
             App::with_state(state.clone())
                     .resource("/", |res| res.method(http::Method::GET).with(index))
                     .resource("/show/{dataset}/", |res| res.method(http::Method::GET).with(show))
+                    .resource("/pick/{dataset}/", |res| res.method(http::Method::GET).with(pick))
                     .resource("/pick/{dataset}/{session}/", |res| res.method(http::Method::GET).with(pick))
         })
         .bind(argmatches.value_of("bind").expect("Host and port"))
