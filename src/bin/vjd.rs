@@ -69,9 +69,25 @@ fn show(req: HttpRequest<AppState>) -> impl Responder {
     }
 }
 
-fn loadvocalist(state: &AppState, name: &str) -> Result<VocaList, Box<dyn Error> > {
+fn getvocalist<'a>(state: &'a AppState, dataset: &'a str) -> Result<&'a VocaList, Box<(dyn Error + 'static)> > {
+    let vocalists = (&*state.data).read().unwrap();
+    match vocalists.get(dataset) {
+        Some(vocalist) => Ok(&vocalist),
+        None => {
+            match loadvocalist(state, dataset) {
+                Ok(vocalist) => {
+                    vocalists.insert(dataset.to_string(), vocalist);
+                    Ok(vocalists.get(dataset).unwrap())
+                },
+                Err(_err) => Err(_err)
+            }
+        }
+    }
+}
+
+fn loadvocalist(state: &AppState, dataset: &str) -> Result<VocaList, Box<dyn Error> > {
    let datadir = &*state.datadir; //deref arc and borrow
-   if let Some(datafile) = getdatafile(name, PathBuf::from(datadir)) {
+   if let Some(datafile) = getdatafile(dataset, PathBuf::from(datadir)) {
         VocaList::parse(datafile.to_str().unwrap())
     } else {
         Err(NotFoundError.into()) //into box
