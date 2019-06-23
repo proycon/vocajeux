@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use std::error::Error;
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize)]
 struct Index {
@@ -45,32 +46,15 @@ impl Error for NotFoundError {
 }
 
 
-fn index(_req: HttpRequest<AppState>) -> impl Responder {
-    let dataindex = getdataindex(None);
-    let index = Index {
-        names: dataindex.iter().map( |f| String::from(f.file_stem().unwrap().to_str().unwrap()) ).collect()
-    };
-    Json(index)
-}
+// Auxiliary functions
 
-/// Show the entire vocabulary list
-fn show(req: HttpRequest<AppState>) -> impl Responder {
-    if let Some(dataset) = req.match_info().get_decoded("dataset") {
-        match loadvocalist(&req.state(), &dataset) {
-            Ok(data) => {
-                Json(data).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
-            },
-            Err(err) => {
-                HttpResponse::NotFound().body(format!("Not found: {}",err))
-            }
-        }
-    } else {
-        HttpResponse::NotFound().finish()
-    }
+/*
+fn getvocalist1<'a>(state: &'a AppState, dataset: &'a str) -> Option<&'a VocaList> {
+    state.data.read().expect("RwLock poisoned").get(dataset)
 }
 
 fn getvocalist<'a>(state: &'a AppState, dataset: &'a str) -> Result<&'a VocaList, Box<(dyn Error + 'static)> > {
-    let vocalists = (&*state.data).read().unwrap();
+    let vocalists = state.data.read().expect("RwLock poisoned");
     match vocalists.get(dataset) {
         Some(vocalist) => Ok(&vocalist),
         None => {
@@ -84,7 +68,22 @@ fn getvocalist<'a>(state: &'a AppState, dataset: &'a str) -> Result<&'a VocaList
         }
     }
 }
+*/
 
+///Adds a vocabulary list to the loaded data
+fn addvocalist<'a>(state: &'a AppState, dataset: &'a str) -> Result<(), Box<(dyn Error + 'static)> > {
+    let mut vocalists = state.data.write().expect("RwLock poisoned");
+    if !vocalists.contains_key(dataset) {
+        let vocalist = loadvocalist(state, dataset)?;
+        vocalists.insert(dataset.to_string(), vocalist);
+    }
+    let mut lastused = state.data_lastused.lock().expect("Lock failed");
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
+    lastused.insert(dataset.to_string(), now);
+    Ok(())
+}
+
+///Loads and returns a vocabulary list
 fn loadvocalist(state: &AppState, dataset: &str) -> Result<VocaList, Box<dyn Error> > {
    let datadir = &*state.datadir; //deref arc and borrow
    if let Some(datafile) = getdatafile(dataset, PathBuf::from(datadir)) {
@@ -95,23 +94,57 @@ fn loadvocalist(state: &AppState, dataset: &str) -> Result<VocaList, Box<dyn Err
 }
 
 
-/// Pick a random word from a dataset
-/*
-fn pick(req: HttpRequest<AppState>) -> impl Responder {
-    if Some(dataset) = req.match_info().get_decoded("dataset") {
-        match loadvocalist(&dataset) {
+// REST API endpoints
+
+fn index(_req: HttpRequest<AppState>) -> impl Responder {
+    let dataindex = getdataindex(None);
+    let index = Index {
+        names: dataindex.iter().map( |f| String::from(f.file_stem().unwrap().to_str().unwrap()) ).collect()
+    };
+    Json(index)
+}
+
+/// Show the entire vocabulary list
+fn show(req: HttpRequest<AppState>) -> impl Responder {
+    if let Some(dataset) = req.match_info().get_decoded("dataset") {
+        match loadvocalist(&req.state(), &dataset) { //loads directly from file rather than using the one in the state
             Ok(data) => {
-              Json(data)
+                Json(data).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
             },
-            Err(_msg) => { //TODO: propagate _msg
-              HttpResponse::NotFound().finish();
+            Err(err) => {
+                HttpResponse::NotFound().body(format!("Not found: {}",err))
             }
         }
     } else {
-        HttpResponse::NotFound().finish();
+        HttpResponse::NotFound().finish()
     }
 }
-*/
+
+///Get a random item from a vocabulary list
+fn pick(req: HttpRequest<AppState>) -> impl Responder {
+    let state = &req.state();
+    if let Some(dataset) = req.match_info().get_decoded("dataset") {
+        match addvocalist(state, &dataset) {
+            Ok(_) => {
+                let vocalists = state.data.read().expect("RwLock poisoned");
+                match vocalists.get(&dataset) {
+                    Some(vocalist) => {
+                        let vocaitem = vocalist.pick(None,None); //TODO: pass scoredata (1st option)
+                        Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
+                    },
+                    None => {
+                        HttpResponse::NotFound().body("Unable to retrieve loaded vocabulary list")
+                    }
+                }
+            }
+            Err(err) => {
+                HttpResponse::NotFound().body(format!("Not found: {}",err))
+            }
+        }
+    } else {
+        HttpResponse::NotFound().finish()
+    }
+}
 
 /*
 fn app(state: AppState) -> App<AppState> {
@@ -165,7 +198,7 @@ fn main() {
             App::with_state(state.clone())
                     .resource("/", |res| res.method(http::Method::GET).with(index))
                     .resource("/show/{dataset}/", |res| res.method(http::Method::GET).with(show))
-                    //.resource("/pick/{dataset}/{session}", |res| res.method(http::Method::GET).with(pick))
+                    .resource("/pick/{dataset}/", |res| res.method(http::Method::GET).with(pick))
         })
         .bind(argmatches.value_of("bind").expect("Host and port"))
         .unwrap()
