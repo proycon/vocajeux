@@ -24,9 +24,9 @@ struct AppState {
     datadir: Arc<String>,
     scoredir: Arc<String>,
     data: Arc<RwLock<HashMap<String,VocaList>>>, //RwLock allows multiple read locks at the same time, Mutex doesn't distinguish between reading and writing and lock for all
-    scores: Arc<Mutex<HashMap<String,VocaScore>>>,
+    scores: Arc<Mutex<HashMap<(String,String),VocaScore>>>,
     data_lastused: Arc<Mutex<HashMap<String,u64>>>,
-    scores_lastused: Arc<Mutex<HashMap<String,u64>>>
+    scores_lastused: Arc<Mutex<HashMap<(String,String),u64>>>
 }
 
 
@@ -83,6 +83,20 @@ fn addvocalist<'a>(state: &'a AppState, dataset: &'a str) -> Result<(), Box<(dyn
     Ok(())
 }
 
+///Adds a vocabulary score to the loaded data
+fn addvocascore<'a>(state: &'a AppState, dataset: &'a str, sessionkey: &'a str) -> Result<(), Box<(dyn Error + 'static)> > {
+    let mut scores = state.scores.lock().expect("Unable to lock");
+    let scorekey = (dataset.to_string(), sessionkey.to_string());
+    if !scores.contains_key(&scorekey) {
+        let scoremap = loadvocascore(state, dataset, sessionkey)?;
+        scores.insert(scorekey.clone(), scoremap);
+    }
+    let mut lastused = state.scores_lastused.lock().expect("Lock failed");
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
+    lastused.insert(scorekey, now);
+    Ok(())
+}
+
 ///Loads and returns a vocabulary list
 fn loadvocalist(state: &AppState, dataset: &str) -> Result<VocaList, Box<dyn Error> > {
    let datadir = &*state.datadir; //deref arc and borrow
@@ -90,6 +104,17 @@ fn loadvocalist(state: &AppState, dataset: &str) -> Result<VocaList, Box<dyn Err
         VocaList::parse(datafile.to_str().unwrap())
     } else {
         Err(NotFoundError.into()) //into box
+    }
+}
+
+///Loads and returns a vocabulary scores
+fn loadvocascore(state: &AppState, dataset: &str, sessionkey: &str) -> Result<VocaScore,Box<dyn Error> > {
+    let scoredir = &*state.scoredir; //deref arc and borrow
+    let scorefile = getscorefile(dataset, PathBuf::from(scoredir), Some(sessionkey));
+    if scorefile.exists() {
+       VocaScore::load(scorefile.to_str().unwrap())
+    } else {
+        Ok(VocaScore::default()) //a new one
     }
 }
 
@@ -123,13 +148,24 @@ fn show(req: HttpRequest<AppState>) -> impl Responder {
 ///Get a random item from a vocabulary list
 fn pick(req: HttpRequest<AppState>) -> impl Responder {
     let state = &req.state();
-    if let Some(dataset) = req.match_info().get_decoded("dataset") {
+    if let Some(dataset) = req.match_info().get_decoded("dataset"){
         match addvocalist(state, &dataset) {
             Ok(_) => {
-                let vocalists = state.data.read().expect("RwLock poisoned");
+                let scores = state.scores.lock().expect("Unable to get score lock");
+                let sessionkey = req.match_info().get_decoded("session");
+                let vocascore = if let Some(sessionkey) = sessionkey {
+                    addvocascore(state,&dataset,&sessionkey).ok();
+                    let scorekey = (dataset.to_string(), sessionkey.to_string());
+                    scores.get(&scorekey)
+                } else {
+                    None
+                };
+
+                let vocalists = state.data.read().expect("Unable to get data lock");
+
                 match vocalists.get(&dataset) {
                     Some(vocalist) => {
-                        let vocaitem = vocalist.pick(None,None); //TODO: pass scoredata (1st option)
+                        let vocaitem = vocalist.pick(vocascore,None);
                         Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
                     },
                     None => {
@@ -198,7 +234,7 @@ fn main() {
             App::with_state(state.clone())
                     .resource("/", |res| res.method(http::Method::GET).with(index))
                     .resource("/show/{dataset}/", |res| res.method(http::Method::GET).with(show))
-                    .resource("/pick/{dataset}/", |res| res.method(http::Method::GET).with(pick))
+                    .resource("/pick/{dataset}/{session}/", |res| res.method(http::Method::GET).with(pick))
         })
         .bind(argmatches.value_of("bind").expect("Host and port"))
         .unwrap()
