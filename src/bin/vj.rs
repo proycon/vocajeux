@@ -23,10 +23,10 @@ fn flashcards(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: b
     loop {
         //select a random item
         let vocaitem;
-        if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.pick(Some(scoredata), filtertags);
+        if let Some(ref mut scoredata) = optscoredata {
+            vocaitem = data.pick(Some(scoredata), filtertags, true);
         } else {
-            vocaitem = data.pick(None, filtertags);
+            vocaitem = data.pick(None, filtertags, true);
         }
         let mut turned = false;
         let correct;
@@ -96,6 +96,26 @@ fn quizprompt(vocaitem: &VocaItem, phon: bool) {
     }
 }
 
+///Picks and prints a random item, provides no further interaction
+fn pick(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, translation: bool, example: bool, filtertags: Option<&Vec<&str>>) {
+    //select a random item
+    let vocaitem;
+    if let Some(ref mut scoredata) = optscoredata {
+        vocaitem = data.pick(Some(scoredata),filtertags,true);
+    } else {
+        vocaitem = data.pick(None,filtertags,true);
+    }
+    println!("{}", vocaitem.word);
+    if phon {
+        println!("{}", vocaitem.transcription);
+    }
+    if example {
+        println!("{}", vocaitem.example);
+    }
+    if translation {
+        println!("{}", vocaitem.translation);
+    }
+}
 
 ///Quiz
 fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, filtertags: Option<&Vec<&str>>) {
@@ -106,10 +126,10 @@ fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, f
     loop {
         //select a random item
         let vocaitem;
-        if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.pick(Some(scoredata),filtertags);
+        if let Some(ref mut scoredata) = optscoredata {
+            vocaitem = data.pick(Some(scoredata),filtertags,true);
         } else {
-            vocaitem = data.pick(None,filtertags);
+            vocaitem = data.pick(None,filtertags,true);
         }
         quizprompt(vocaitem, phon);
         let mut correct = false;
@@ -159,7 +179,7 @@ fn getquizoptions<'a>(data: &'a VocaList, correctitem: &'a VocaItem, optioncount
             options.push(correctitem);
         } else {
             loop {
-                let candidate  = data.pick(None, filtertags);
+                let candidate  = data.pick(None, filtertags, false);
                 if candidate.id() != correctitem.id() {
                     options.push(candidate);
                     break;
@@ -178,10 +198,10 @@ fn multiquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, choiceco
     loop {
         //select a random item
         let vocaitem;
-        if let Some(ref scoredata) = optscoredata {
-            vocaitem = data.pick(Some(scoredata), filtertags);
+        if let Some(ref mut scoredata) = optscoredata {
+            vocaitem = data.pick(Some(scoredata), filtertags, true);
         } else {
-            vocaitem = data.pick(None, filtertags);
+            vocaitem = data.pick(None, filtertags, true);
         }
         quizprompt(vocaitem, phon);
         let (options, correctindex) = getquizoptions(&data, &vocaitem, choicecount, filtertags);
@@ -273,10 +293,10 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
         let mut vocaitems: Vec<&VocaItem> = Vec::new();
         for _i in 0..matchcount {
             let vocaitem;
-            if let Some(ref scoredata) = optscoredata {
-                vocaitem = data.pick(Some(scoredata), filtertags);
+            if let Some(ref mut scoredata) = optscoredata {
+                vocaitem = data.pick(Some(scoredata), filtertags, true);
             } else {
-                vocaitem = data.pick(None, filtertags);
+                vocaitem = data.pick(None, filtertags, true);
             }
             vocaitems.push(vocaitem);
         }
@@ -347,6 +367,18 @@ fn main() {
                          .help("Show phonetic transcription")
                          .long("phon")
                          .short("p");
+    let arg_translations = Arg::with_name("translations")
+                         .help("Show translations")
+                         .long("translations")
+                         .short("t");
+    let arg_examples = Arg::with_name("examples")
+                         .help("Show examples")
+                         .long("examples")
+                         .short("x");
+    let arg_comments = Arg::with_name("comments")
+                         .help("Show comments")
+                         .long("comments")
+                         .short("C");
     let argmatches = App::new("Vocajeux")
         .version("0.1")
         .author("Maarten van Gompel (proycon) <proycon@anaproy.nl>")
@@ -383,21 +415,9 @@ fn main() {
                     .about("Show the entire vocabulary list")
                     .arg(arg_file.clone())
                     .arg(arg_tags.clone())
-                    .arg(Arg::with_name("translations")
-                         .help("Show translations")
-                         .long("translation")
-                         .short("t")
-                    )
-                    .arg(Arg::with_name("examples")
-                         .help("Show examples")
-                         .long("showexamples")
-                         .short("x")
-                    )
-                    .arg(Arg::with_name("comments")
-                         .help("Show comments")
-                         .long("showcomments")
-                         .short("C")
-                    )
+                    .arg(arg_translations.clone())
+                    .arg(arg_examples.clone())
+                    .arg(arg_comments.clone())
                     .arg(Arg::with_name("showtags")
                          .help("Show tags")
                          .long("showtags")
@@ -445,6 +465,14 @@ fn main() {
                     .arg(arg_file.clone())
                     .arg(arg_tags.clone())
                     .arg(arg_phon.clone()))
+        .subcommand(SubCommand::with_name("pick")
+                    .about("Pick and display a random word")
+                    .arg(arg_file.clone())
+                    .arg(arg_tags.clone())
+                    .arg(arg_phon.clone()))
+                    .arg(arg_translations.clone())
+                    .arg(arg_examples.clone())
+                    .arg(arg_comments.clone())
         .subcommand(SubCommand::with_name("quiz")
                     .about("Simple open quiz")
                     .arg(arg_file.clone())
@@ -547,17 +575,20 @@ fn main() {
                         //see what subcommand to perform
                         match argmatches.subcommand_name() {
                             Some("show") => {
-                                data.show(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("showexamples"), submatches.is_present("showcomments"));
+                                data.show(submatches.is_present("translations"), submatches.is_present("phon"), filtertags.as_ref(), submatches.is_present("showtags"), submatches.is_present("examples"), submatches.is_present("comments"));
                             },
                             Some("csv") => {
                                 data.csv(filtertags.as_ref()).expect("Error during CSV serialisation");
                             },
-                            Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
+                            Some("pick") | Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
                                 let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
                                     true => VocaScore::load(scorefile.to_str().expect("Invalid score file")).ok(),
                                     false => Some(VocaScore { ..Default::default() } ),
                                 };
                                 match argmatches.subcommand_name() {
+                                    Some("pick") => {
+                                        pick(&data, optscoredata.as_mut() , submatches.is_present("phon"), submatches.is_present("translations"), submatches.is_present("examples"), filtertags.as_ref());
+                                    },
                                     Some("choicequiz") => {
                                         if let Some(choicecount) = submatches.value_of("multiplechoice") {
                                             let choicecount: u32 = choicecount.parse().expect("Not a valid number for --multiplechoice");

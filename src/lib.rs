@@ -151,7 +151,7 @@ impl VocaList {
     }
 
     ///Select a word
-    pub fn pick(&self, optscoredata: Option<&VocaScore>, filtertags: Option<&Vec<&str>>) -> &VocaItem {
+    pub fn pick(&self, mut optscoredata: Option<&mut VocaScore>, filtertags: Option<&Vec<&str>>, seen: bool) -> &VocaItem {
         let sum: f64 = self.items.iter().map(|item| {
             if item.filter(filtertags) {
                 if let Some(ref scoredata) = optscoredata {
@@ -179,7 +179,13 @@ impl VocaList {
                 }
             }
         }
-        &self.items[choiceindex]
+        let vocaitem = &self.items[choiceindex];
+        if seen {
+            if let Some(ref mut scoredata) = optscoredata {
+                scoredata.seen(vocaitem);
+            }
+        }
+        vocaitem
     }
 }
 
@@ -206,10 +212,15 @@ impl VocaScore {
         incorrect as f64 / correct as f64
     }
 
-    pub fn addscore(&mut self, item: &VocaItem, correct: bool) {
+    pub fn seen(&mut self, item: &VocaItem) {
         let id: String = item.id_as_string();
         let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
         self.lastseen.insert(id.clone(),now);
+    }
+
+    pub fn addscore(&mut self, item: &VocaItem, correct: bool) {
+        let id: String = item.id_as_string();
+        self.seen(item);
         if correct {
             *self.correct.entry(id).or_insert(0) += 1;
         } else {
