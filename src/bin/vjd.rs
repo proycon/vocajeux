@@ -215,16 +215,34 @@ fn find(req: HttpRequest<AppState>) -> impl Responder {
 }
 
 fn cleanup(state: &AppState) {
-    //TODO
+    let expiration = 900; //15 minutes
+    let mut scores = state.scores.lock().expect("Unable to get score lock");
+    let mut scores_lastused = state.scores_lastused.lock().expect("Unable to get score lastused lock");
+    let mut scores_expire: Vec<(String,String)> = Vec::new();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Unable to get time").as_secs();
+    for (scorekey, lastused) in scores_lastused.iter() {
+        if now - lastused >= expiration {
+            scores_expire.push(scorekey.clone());
+        }
+    }
+    for scorekey in scores_expire.iter() {
+        scores_lastused.remove(scorekey);
+        scores.remove(scorekey);
+    }
+    let mut data = state.data.write().expect("Unable to get data lock");
+    let mut data_lastused = state.data_lastused.lock().expect("Unable to get data lock");
+    let mut data_expire: Vec<String> = Vec::new();
+    for (dataset, lastused) in data_lastused.iter() {
+        if now - lastused >= expiration {
+            data_expire.push(dataset.clone());
+        }
+    }
+    for dataset in data_expire.iter() {
+        data_lastused.remove(dataset);
+        data.remove(dataset);
+    }
 }
 
-/*
-fn app(state: AppState) -> App<AppState> {
-    App::with_state(state)
-            .resource("/", |res| res.method(http::Method::GET).with(index))
-            .resource("/{dataset}/", |res| res.method(http::Method::GET).with(get))
-}
-*/
 
 fn main() {
     let defaultdatadir = defaultdatadir();
@@ -272,7 +290,7 @@ fn main() {
     thread::spawn(move || {
         loop {
             cleanup(&clonedstate);
-            thread::sleep(Duration::from_secs(900)); //wait 15 minutes
+            thread::sleep(Duration::from_secs(300)); //wait 5 minutes
         }
     });
 
