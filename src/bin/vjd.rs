@@ -47,30 +47,6 @@ impl Error for NotFoundError {
 }
 
 
-// Auxiliary functions
-
-/*
-fn getvocalist1<'a>(state: &'a AppState, dataset: &'a str) -> Option<&'a VocaList> {
-    state.data.read().expect("RwLock poisoned").get(dataset)
-}
-
-fn getvocalist<'a>(state: &'a AppState, dataset: &'a str) -> Result<&'a VocaList, Box<(dyn Error + 'static)> > {
-    let vocalists = state.data.read().expect("RwLock poisoned");
-    match vocalists.get(dataset) {
-        Some(vocalist) => Ok(&vocalist),
-        None => {
-            match loadvocalist(state, dataset) {
-                Ok(vocalist) => {
-                    vocalists.insert(dataset.to_string(), vocalist);
-                    Ok(vocalists.get(dataset).unwrap())
-                },
-                Err(_err) => Err(_err)
-            }
-        }
-    }
-}
-*/
-
 ///Adds a vocabulary list to the loaded data
 fn addvocalist<'a>(state: &'a AppState, dataset: &'a str) -> Result<(), Box<(dyn Error + 'static)> > {
     let mut vocalists = state.data.write().expect("RwLock poisoned");
