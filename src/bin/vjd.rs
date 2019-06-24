@@ -270,8 +270,10 @@ fn main() {
     let clonedstate = state.clone();
 
     thread::spawn(move || {
-        cleanup(&clonedstate);
-        thread::sleep(Duration::from_secs(900)); //wait 15 minutes
+        loop {
+            cleanup(&clonedstate);
+            thread::sleep(Duration::from_secs(900)); //wait 15 minutes
+        }
     });
 
     server::new(move || {
