@@ -105,6 +105,27 @@ fn pick(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, t
     } else {
         vocaitem = data.pick(None,filtertags,true);
     }
+    print(vocaitem, phon, translation, example);
+}
+
+///Looks up and prints a specific item, provides no further interaction
+fn find(data: &VocaList, word: &str, mut optscoredata: Option<&mut VocaScore>, phon: bool, translation: bool, example: bool) {
+    //select a random item
+    let vocaitem;
+    if let Some(ref mut scoredata) = optscoredata {
+        vocaitem = data.find(word, Some(scoredata),true);
+    } else {
+        vocaitem = data.find(word, None,true);
+    }
+    if let Some(vocaitem) = vocaitem {
+        print(vocaitem, phon, translation, example);
+    } else {
+        eprintln!("Not found");
+    }
+}
+
+///Prints a vocaitem
+fn print(vocaitem: &VocaItem, phon: bool, translation: bool, example: bool) {
     println!("{}", vocaitem.word);
     if phon {
         println!("{}", vocaitem.transcription);
@@ -116,6 +137,7 @@ fn pick(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, t
         println!("{}", vocaitem.translation);
     }
 }
+
 
 ///Quiz
 fn quiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, filtertags: Option<&Vec<&str>>) {
@@ -473,6 +495,18 @@ fn main() {
                     .arg(arg_translations.clone())
                     .arg(arg_examples.clone())
                     .arg(arg_comments.clone())
+        .subcommand(SubCommand::with_name("find")
+                    .about("Find and display a specific word")
+                    .arg(Arg::with_name("word")
+                        .help("The word")
+                        .index(2)
+                        .required(true))
+                    .arg(arg_file.clone())
+                    .arg(arg_tags.clone())
+                    .arg(arg_phon.clone()))
+                    .arg(arg_translations.clone())
+                    .arg(arg_examples.clone())
+                    .arg(arg_comments.clone())
         .subcommand(SubCommand::with_name("quiz")
                     .about("Simple open quiz")
                     .arg(arg_file.clone())
@@ -580,7 +614,7 @@ fn main() {
                             Some("csv") => {
                                 data.csv(filtertags.as_ref()).expect("Error during CSV serialisation");
                             },
-                            Some("pick") | Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
+                            Some("pick") | Some("find") | Some("quiz") | Some("choicequiz") | Some("matchquiz") | Some("flashcards") => {
                                 let mut optscoredata: Option<VocaScore> = match scorefile.exists() {
                                     true => VocaScore::load(scorefile.to_str().expect("Invalid score file")).ok(),
                                     false => Some(VocaScore { ..Default::default() } ),
@@ -588,6 +622,10 @@ fn main() {
                                 match argmatches.subcommand_name() {
                                     Some("pick") => {
                                         pick(&data, optscoredata.as_mut() , submatches.is_present("phon"), submatches.is_present("translations"), submatches.is_present("examples"), filtertags.as_ref());
+                                    },
+                                    Some("find") => {
+                                        let word = submatches.value_of("word").expect("No word specified");
+                                        find(&data, &word, optscoredata.as_mut() , submatches.is_present("phon"), submatches.is_present("translations"), submatches.is_present("examples"));
                                     },
                                     Some("choicequiz") => {
                                         if let Some(choicecount) = submatches.value_of("multiplechoice") {

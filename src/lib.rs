@@ -187,6 +187,17 @@ impl VocaList {
         }
         vocaitem
     }
+
+    ///Lookup a word
+    pub fn find(&self, word: &str, optscoredata: Option<&mut VocaScore>, seen: bool) -> Option<&VocaItem> {
+        let optvocaitem = self.items.iter().find(|x| { x.word == word });
+        if seen {
+            if let (Some(ref mut scoredata), Some(vocaitem)) = (optscoredata, optvocaitem) {
+                scoredata.seen(vocaitem);
+            }
+        };
+        optvocaitem
+    }
 }
 
 
