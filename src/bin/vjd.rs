@@ -157,7 +157,7 @@ fn handle(req: HttpRequest<AppState>, handler: impl FnOnce(&HttpRequest<AppState
     let state = &req.state();
     //parse query parameter:
     let seen = match req.query().get("seen").map(|x| { x.as_str() }) {
-        Some("yes") | Some("1") | Some("true") => true,
+        Some("no") | Some("0") | Some("false") => true,
         _ => false
     };
 
@@ -218,6 +218,32 @@ fn find(req: HttpRequest<AppState>) -> impl Responder {
     })
 }
 
+///Mark an item as correct
+fn score(req: HttpRequest<AppState>) -> impl Responder {
+    handle(req, |req,vocalist, vocascore, _| {
+        if let Some(vocascore) = vocascore {
+            if let Some(word) = req.match_info().get("word") {
+                if let Some(vocaitem) = vocalist.find(word, Some(vocascore), true) {
+                    let correct: bool;
+                    match req.query().get("correct").map(|x| { x.as_str() }) {
+                        Some("yes") | Some("1") | Some("true") => { correct = true; },
+                        Some("no") | Some("0") | Some("false") => { correct = false; },
+                        Some(_) => { return HttpResponse::NotFound().body("Expected parameter 'correct' has invalid value"); }
+                        None => { return HttpResponse::NotFound().body("Expected parameter 'correct' not found"); }
+                    };
+                    vocascore.addscore(vocaitem, correct);
+                    HttpResponse::Ok().body("Word not found")
+                } else {
+                    HttpResponse::NotFound().body("Word not found")
+                }
+            } else {
+                HttpResponse::NotFound().body("Word not specified")
+            }
+        } else {
+            HttpResponse::NotFound().body("No session specified")
+        }
+    })
+}
 
 
 fn main() {
@@ -278,6 +304,7 @@ fn main() {
                     .resource("/pick/{dataset}/{session}/", |res| res.method(http::Method::GET).with(pick))
                     .resource("/find/{dataset}/{word}/", |res| res.method(http::Method::GET).with(find))
                     .resource("/find/{dataset}/{word}/{session}/", |res| res.method(http::Method::GET).with(find))
+                    .resource("/score/{dataset}/{word}/{session}/", |res| res.method(http::Method::GET).with(score))
         })
         .bind(argmatches.value_of("bind").expect("Host and port not provided or invalid"))
         .unwrap()
