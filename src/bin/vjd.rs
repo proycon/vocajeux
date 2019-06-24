@@ -146,8 +146,7 @@ fn show(req: HttpRequest<AppState>) -> impl Responder {
 }
 
 
-///Get a random item from a vocabulary list
-fn pick(req: HttpRequest<AppState>) -> impl Responder {
+fn handle(req: HttpRequest<AppState>, handler: impl FnOnce(&HttpRequest<AppState>, &VocaList,Option<&mut VocaScore>, bool) -> HttpResponse) -> impl Responder {
     let state = &req.state();
     //parse query parameter:
     let seen = match req.query().get("seen").map(|x| { x.as_str() }) {
@@ -172,8 +171,7 @@ fn pick(req: HttpRequest<AppState>) -> impl Responder {
 
                 match vocalists.get(&dataset) {
                     Some(vocalist) => {
-                        let vocaitem = vocalist.pick(vocascore,None, seen);
-                        Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
+                        handler(&req, vocalist, vocascore, seen)
                     },
                     None => {
                         HttpResponse::NotFound().body("Unable to retrieve loaded vocabulary list")
@@ -189,46 +187,25 @@ fn pick(req: HttpRequest<AppState>) -> impl Responder {
     }
 }
 
+
+///Get a random item from a vocabulary list
+fn pick(req: HttpRequest<AppState>) -> impl Responder {
+    handle(req, |req,vocalist, vocascore, seen| {
+        let vocaitem = vocalist.pick(vocascore,None, seen);
+        Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
+    })
+}
+
 ///Get a specific item from a vocabulary list
 fn find(req: HttpRequest<AppState>) -> impl Responder {
-    let state = &req.state();
-    //parse query parameter:
-    let seen = match req.query().get("seen").map(|x| { x.as_str() }) {
-        Some("yes") | Some("1") | Some("true") => true,
-        _ => false
-    };
-    if let Some(dataset) = req.match_info().get_decoded("dataset"){
-        match addvocalist(state, &dataset) {
-            Ok(_) => {
-                let mut scores = state.scores.lock().expect("Unable to get score lock");
-                let sessionkey = req.match_info().get_decoded("session");
-                let vocascore = if let Some(sessionkey) = sessionkey {
-                    addvocascore(state,&dataset,&sessionkey).ok();
-                    let scorekey = (dataset.to_string(), sessionkey.to_string());
-                    scores.get_mut(&scorekey)
-                } else {
-                    None
-                };
-
-                let vocalists = state.data.read().expect("Unable to get data lock");
-
-                match vocalists.get(&dataset) {
-                    Some(vocalist) => {
-                        let vocaitem = vocalist.pick(vocascore,None, seen);
-                        Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
-                    },
-                    None => {
-                        HttpResponse::NotFound().body("Unable to retrieve loaded vocabulary list")
-                    }
-                }
-            }
-            Err(err) => {
-                HttpResponse::NotFound().body(format!("Not found: {}",err))
-            }
+    handle(req, |req,vocalist, vocascore, seen| {
+        if let Some(word) = req.query().get("word") {
+            let vocaitem = vocalist.find(word, vocascore, seen);
+            Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
+        } else {
+            HttpResponse::NotFound().body("Word not found")
         }
-    } else {
-        HttpResponse::NotFound().finish()
-    }
+    })
 }
 /*
 fn app(state: AppState) -> App<AppState> {
