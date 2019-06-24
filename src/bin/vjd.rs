@@ -146,6 +146,8 @@ fn show(req: HttpRequest<AppState>) -> impl Responder {
 }
 
 
+///Generic handle function that takes care of loading vocabulary lists and score lists and finally
+///passes control to another specified function
 fn handle(req: HttpRequest<AppState>, handler: impl FnOnce(&HttpRequest<AppState>, &VocaList,Option<&mut VocaScore>, bool) -> HttpResponse) -> impl Responder {
     let state = &req.state();
     //parse query parameter:
@@ -199,11 +201,14 @@ fn pick(req: HttpRequest<AppState>) -> impl Responder {
 ///Get a specific item from a vocabulary list
 fn find(req: HttpRequest<AppState>) -> impl Responder {
     handle(req, |req,vocalist, vocascore, seen| {
-        if let Some(word) = req.query().get("word") {
-            let vocaitem = vocalist.find(word, vocascore, seen);
-            Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
+        if let Some(word) = req.match_info().get("word") {
+            if let Some(vocaitem) = vocalist.find(word, vocascore, seen) {
+                Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
+            } else {
+                HttpResponse::NotFound().body("Word not found")
+            }
         } else {
-            HttpResponse::NotFound().body("Word not found")
+            HttpResponse::NotFound().body("Word not specified")
         }
     })
 }
