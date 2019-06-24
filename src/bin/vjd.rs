@@ -145,6 +145,7 @@ fn show(req: HttpRequest<AppState>) -> impl Responder {
     }
 }
 
+
 ///Get a random item from a vocabulary list
 fn pick(req: HttpRequest<AppState>) -> impl Responder {
     let state = &req.state();
@@ -188,6 +189,47 @@ fn pick(req: HttpRequest<AppState>) -> impl Responder {
     }
 }
 
+///Get a specific item from a vocabulary list
+fn find(req: HttpRequest<AppState>) -> impl Responder {
+    let state = &req.state();
+    //parse query parameter:
+    let seen = match req.query().get("seen").map(|x| { x.as_str() }) {
+        Some("yes") | Some("1") | Some("true") => true,
+        _ => false
+    };
+    if let Some(dataset) = req.match_info().get_decoded("dataset"){
+        match addvocalist(state, &dataset) {
+            Ok(_) => {
+                let mut scores = state.scores.lock().expect("Unable to get score lock");
+                let sessionkey = req.match_info().get_decoded("session");
+                let vocascore = if let Some(sessionkey) = sessionkey {
+                    addvocascore(state,&dataset,&sessionkey).ok();
+                    let scorekey = (dataset.to_string(), sessionkey.to_string());
+                    scores.get_mut(&scorekey)
+                } else {
+                    None
+                };
+
+                let vocalists = state.data.read().expect("Unable to get data lock");
+
+                match vocalists.get(&dataset) {
+                    Some(vocalist) => {
+                        let vocaitem = vocalist.pick(vocascore,None, seen);
+                        Json(vocaitem).respond_to(&req).unwrap_or(HttpResponse::NotFound().finish())
+                    },
+                    None => {
+                        HttpResponse::NotFound().body("Unable to retrieve loaded vocabulary list")
+                    }
+                }
+            }
+            Err(err) => {
+                HttpResponse::NotFound().body(format!("Not found: {}",err))
+            }
+        }
+    } else {
+        HttpResponse::NotFound().finish()
+    }
+}
 /*
 fn app(state: AppState) -> App<AppState> {
     App::with_state(state)
@@ -242,6 +284,8 @@ fn main() {
                     .resource("/show/{dataset}/", |res| res.method(http::Method::GET).with(show))
                     .resource("/pick/{dataset}/", |res| res.method(http::Method::GET).with(pick))
                     .resource("/pick/{dataset}/{session}/", |res| res.method(http::Method::GET).with(pick))
+                    .resource("/find/{dataset}/{word}/", |res| res.method(http::Method::GET).with(find))
+                    .resource("/find/{dataset}/{word}/{session/", |res| res.method(http::Method::GET).with(find))
         })
         .bind(argmatches.value_of("bind").expect("Host and port not provided or invalid"))
         .unwrap()
