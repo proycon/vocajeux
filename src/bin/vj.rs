@@ -109,7 +109,7 @@ fn pick(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, t
 }
 
 ///Looks up and prints a specific item, provides no further interaction
-fn find(data: &VocaList, word: &str, mut optscoredata: Option<&mut VocaScore>, phon: bool, translation: bool, example: bool) {
+fn find(data: &VocaList, word: &str, mut optscoredata: Option<&mut VocaScore>, phon: bool, translation: bool, example: bool) -> bool {
     //select a random item
     let vocaitem;
     if let Some(ref mut scoredata) = optscoredata {
@@ -119,8 +119,10 @@ fn find(data: &VocaList, word: &str, mut optscoredata: Option<&mut VocaScore>, p
     }
     if let Some(vocaitem) = vocaitem {
         print(vocaitem, phon, translation, example);
+        true
     } else {
         eprintln!("Not found");
+        false
     }
 }
 
