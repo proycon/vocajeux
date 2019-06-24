@@ -97,6 +97,7 @@ fn loadvocascore(state: &AppState, dataset: &str, sessionkey: &str) -> Result<Vo
 
 fn cleanup(state: &AppState) {
     let expiration = 900; //15 minutes
+    let scoredir: &str = &state.scoredir;
     let mut scores = state.scores.lock().expect("Unable to get score lock");
     let mut scores_lastused = state.scores_lastused.lock().expect("Unable to get score lastused lock");
     let mut scores_expire: Vec<(String,String)> = Vec::new();
@@ -104,6 +105,13 @@ fn cleanup(state: &AppState) {
     for (scorekey, lastused) in scores_lastused.iter() {
         if now - lastused >= expiration {
             scores_expire.push(scorekey.clone());
+            let (dataset, sessionkey) = scorekey;
+            if let Some(vocascore) = scores.get_mut(scorekey) {
+                let scorefile = getscorefile(dataset, PathBuf::from(scoredir), Some(sessionkey));
+                if let Err(err) = vocascore.save(scorefile.to_str().unwrap()) {
+                    eprintln!("Error during serialisation of {}: {}",scorefile.to_str().unwrap(), err);
+                }
+            }
         }
     }
     for scorekey in scores_expire.iter() {
