@@ -232,7 +232,9 @@ fn score(req: HttpRequest<AppState>) -> impl Responder {
                         None => { return HttpResponse::NotFound().body("Expected parameter 'correct' not found"); }
                     };
                     vocascore.addscore(vocaitem, correct);
-                    HttpResponse::Ok().body("Word not found")
+                    HttpResponse::Ok()
+                        .header(http::header::CONTENT_TYPE, http::header::ContentType::json())
+                        .body("{}") //empty json response
                 } else {
                     HttpResponse::NotFound().body("Word not found")
                 }
