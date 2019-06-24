@@ -7,7 +7,7 @@ extern crate clap;
 
 use vocajeux::*;
 use actix_web::{server,http,App,HttpRequest,HttpResponse, Responder, Json};
-use std::path::{Path,PathBuf};
+use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use std::error::Error;
@@ -267,7 +267,7 @@ fn main() {
                     .resource("/pick/{dataset}/", |res| res.method(http::Method::GET).with(pick))
                     .resource("/pick/{dataset}/{session}/", |res| res.method(http::Method::GET).with(pick))
                     .resource("/find/{dataset}/{word}/", |res| res.method(http::Method::GET).with(find))
-                    .resource("/find/{dataset}/{word}/{session/", |res| res.method(http::Method::GET).with(find))
+                    .resource("/find/{dataset}/{word}/{session}/", |res| res.method(http::Method::GET).with(find))
         })
         .bind(argmatches.value_of("bind").expect("Host and port not provided or invalid"))
         .unwrap()

@@ -8,6 +8,7 @@ extern crate dirs;
 use std::iter::Iterator;
 use std::io::{BufRead,Write};
 use std::path::{Path,PathBuf};
+use std::process::exit;
 use std::fs;
 use clap::{App, Arg, SubCommand};
 use regex::Regex;
@@ -377,6 +378,7 @@ fn matchquiz(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, matchcou
 
 
 fn main() {
+    let mut success = true; //determines the exit code
     let defaultdatadir = defaultdatadir();
     let defaultscoredir = defaultscoredir();
     let arg_file = Arg::with_name("file")
@@ -654,15 +656,21 @@ fn main() {
                                 }
                             },
                             _ => {
+                                success = false;
                                 eprintln!("Nothing to do!");
                             }
                         }
                     },
                     Err(err) => {
+                        success = false;
                         eprintln!("Error: {}", err);
                     }
                 }//match
             } //iflet
         }
     }
+    exit(match success {
+        true => 0,
+        false => 1,
+    });
 }
