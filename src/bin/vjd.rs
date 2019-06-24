@@ -12,7 +12,8 @@ use std::collections::HashMap;
 use std::sync::{Arc,Mutex,RwLock};
 use std::error::Error;
 use std::fmt;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::thread;
 
 #[derive(Serialize)]
 struct Index {
@@ -212,6 +213,11 @@ fn find(req: HttpRequest<AppState>) -> impl Responder {
         }
     })
 }
+
+fn cleanup(state: &AppState) {
+    //TODO
+}
+
 /*
 fn app(state: AppState) -> App<AppState> {
     App::with_state(state)
@@ -251,6 +257,7 @@ fn main() {
         )
         .get_matches();
 
+
     let state = AppState {
                     datadir: Arc::new(argmatches.value_of("datadir").unwrap().to_string()),
                     scoredir: Arc::new(argmatches.value_of("scoredir").unwrap().to_string()),
@@ -259,6 +266,13 @@ fn main() {
                     data_lastused: Arc::new(Mutex::new(HashMap::new())),
                     scores_lastused: Arc::new(Mutex::new(HashMap::new()))
                 };
+
+    let clonedstate = state.clone();
+
+    thread::spawn(move || {
+        cleanup(&clonedstate);
+        thread::sleep(Duration::from_secs(900)); //wait 15 minutes
+    });
 
     server::new(move || {
             App::with_state(state.clone())
