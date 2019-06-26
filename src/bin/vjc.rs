@@ -31,6 +31,20 @@ fn pick(url: &str, dataset: &str, accesskey: Option<&str>, seen: bool) -> Result
     Ok(json)
 }
 
+fn find(url: &str, dataset: &str, word: &str, accesskey: Option<&str>, seen: bool) -> Result<VocaItem, reqwest::Error> {
+    let seen = match seen {
+        true => "yes",
+        false => "no",
+    };
+    let url = if let Some(accesskey) = accesskey {
+        format!("{}/find/{}/{}/{}/?seen={}", url, dataset, word, accesskey, seen)
+    } else {
+        format!("{}/find/{}/{}/?seen={}", url, dataset, word, seen)
+    };
+    let json: VocaItem  = reqwest::get(url.as_str())?.json()?;
+    Ok(json)
+}
+
 fn show(url: &str, dataset: &str) -> Result<VocaList, reqwest::Error> {
     let url = format!("{}/show/{}/", url, dataset);
     let json: VocaList  = reqwest::get(url.as_str())?.json()?;
@@ -182,6 +196,12 @@ fn main() {
                 },
                 "pick" => {
                     match pick(url, argmatches.value_of("dataset").expect("No dataset specified"), argmatches.value_of("accesskey"), true) {
+                        Ok(vocaitem) => vocaitem.print(submatches.is_present("phon"), submatches.is_present("translation"), submatches.is_present("example")),
+                        Err(err) => println!("ERROR: {}", err),
+                    }
+                },
+                "find" => {
+                    match find(url, argmatches.value_of("dataset").expect("No dataset specified"), argmatches.value_of("word").expect("Word not provided") ,argmatches.value_of("accesskey"), true) {
                         Ok(vocaitem) => vocaitem.print(submatches.is_present("phon"), submatches.is_present("translation"), submatches.is_present("example")),
                         Err(err) => println!("ERROR: {}", err),
                     }
