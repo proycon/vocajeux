@@ -23,13 +23,20 @@ fn pick(url: &str, dataset: &str, accesskey: Option<&str>, seen: bool) -> Result
         false => "no",
     };
     let url = if let Some(accesskey) = accesskey {
-        format!("{}/{}/{}/?seen={}", url, dataset, accesskey, seen)
+        format!("{}/pick/{}/{}/?seen={}", url, dataset, accesskey, seen)
     } else {
-        format!("{}/{}/?seen={}", url, dataset, seen)
+        format!("{}/pick/{}/?seen={}", url, dataset, seen)
     };
     let json: VocaItem  = reqwest::get(url.as_str())?.json()?;
     Ok(json)
 }
+
+fn show(url: &str, dataset: &str) -> Result<VocaList, reqwest::Error> {
+    let url = format!("{}/show/{}/", url, dataset);
+    let json: VocaList  = reqwest::get(url.as_str())?.json()?;
+    Ok(json)
+}
+
 
 fn main() {
     let mut success = true; //determines the exit code
@@ -176,6 +183,14 @@ fn main() {
                 "pick" => {
                     match pick(url, argmatches.value_of("dataset").expect("No dataset specified"), argmatches.value_of("accesskey"), true) {
                         Ok(vocaitem) => vocaitem.print(submatches.is_present("phon"), submatches.is_present("translation"), submatches.is_present("example")),
+                        Err(err) => println!("ERROR: {}", err),
+                    }
+                },
+                "show" => {
+                    match show(url, argmatches.value_of("dataset").expect("No dataset specified")) {
+                        Ok(vocalist) => {
+                            vocalist.show(submatches.is_present("translation"), submatches.is_present("phon"), None, false, submatches.is_present("example"), false);
+                        }
                         Err(err) => println!("ERROR: {}", err),
                     }
                 },
