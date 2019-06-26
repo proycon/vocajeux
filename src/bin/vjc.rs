@@ -17,6 +17,20 @@ fn index(url: &str) -> Result<Index, reqwest::Error> {
     Ok(json)
 }
 
+fn pick(url: &str, dataset: &str, accesskey: Option<&str>, seen: bool) -> Result<VocaItem, reqwest::Error> {
+    let seen = match seen {
+        true => "yes",
+        false => "no",
+    };
+    let url = if let Some(accesskey) = accesskey {
+        format!("{}/{}/{}/?seen={}", url, dataset, accesskey, seen)
+    } else {
+        format!("{}/{}/?seen={}", url, dataset, seen)
+    };
+    let json: VocaItem  = reqwest::get(url.as_str())?.json()?;
+    Ok(json)
+}
+
 fn main() {
     let mut success = true; //determines the exit code
     let arg_dataset = Arg::with_name("dataset")
@@ -143,21 +157,32 @@ fn main() {
             eprintln!("No command given, see --help for syntax");
             std::process::exit(1);
         },
-        Some("ls") =>  {
-            match index(url) {
-                Ok(dataindex) => {
-                    for name in dataindex.names.iter() {
-                        println!("{}", name);
+        Some(command) => {
+            let submatches = argmatches.subcommand_matches(argmatches.subcommand_name().unwrap()).unwrap();
+            match command {
+                "ls" =>  {
+                    match index(url) {
+                        Ok(dataindex) => {
+                            for name in dataindex.names.iter() {
+                                println!("{}", name);
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("ERROR: {}", err);
+                            success = false;
+                        }
                     }
-                }
-                Err(err) => {
-                    eprintln!("ERROR: {}", err);
-                    success = false;
+                },
+                "pick" => {
+                    match pick(url, argmatches.value_of("dataset").expect("No dataset specified"), argmatches.value_of("accesskey"), true) {
+                        Ok(vocaitem) => vocaitem.print(submatches.is_present("phon"), submatches.is_present("translation"), submatches.is_present("example")),
+                        Err(err) => println!("ERROR: {}", err),
+                    }
+                },
+                _ => {
+                    eprintln!("Not implemented yet");
                 }
             }
-        },
-        _ => {
-            eprintln!("Not implemented yet");
         }
     }
     exit(match success {

@@ -106,7 +106,7 @@ fn pick(data: &VocaList, mut optscoredata: Option<&mut VocaScore>, phon: bool, t
     } else {
         vocaitem = data.pick(None,filtertags,true);
     }
-    print(vocaitem, phon, translation, example);
+    vocaitem.print(phon, translation, example);
 }
 
 ///Looks up and prints a specific item, provides no further interaction
@@ -119,7 +119,7 @@ fn find(data: &VocaList, word: &str, mut optscoredata: Option<&mut VocaScore>, p
         vocaitem = data.find(word, None,true);
     }
     if let Some(vocaitem) = vocaitem {
-        print(vocaitem, phon, translation, example);
+        vocaitem.print(phon, translation, example);
         true
     } else {
         eprintln!("Not found");
@@ -127,19 +127,6 @@ fn find(data: &VocaList, word: &str, mut optscoredata: Option<&mut VocaScore>, p
     }
 }
 
-///Prints a vocaitem
-fn print(vocaitem: &VocaItem, phon: bool, translation: bool, example: bool) {
-    println!("{}", vocaitem.word);
-    if phon {
-        println!("{}", vocaitem.transcription);
-    }
-    if example {
-        println!("{}", vocaitem.example);
-    }
-    if translation {
-        println!("{}", vocaitem.translation);
-    }
-}
 
 
 ///Quiz

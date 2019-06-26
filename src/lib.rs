@@ -77,6 +77,20 @@ impl VocaItem {
             None => true
         }
     }
+
+    ///Prints a vocaitem
+    pub fn print(self: &VocaItem, phon: bool, translation: bool, example: bool) {
+        println!("{}", self.word);
+        if phon {
+            println!("{}", self.transcription);
+        }
+        if example {
+            println!("{}", self.example);
+        }
+        if translation {
+            println!("{}", self.translation);
+        }
+    }
 }
 
 impl VocaList {
