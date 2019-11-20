@@ -150,7 +150,7 @@ impl VocaList {
     }
 
     ///Output all data as CSV
-    pub fn csv(&self, filtertags: Option<&Vec<&str>>) -> Result<(), Box<Error>> {
+    pub fn csv(&self, filtertags: Option<&Vec<&str>>) -> Result<(), Box<dyn Error>> {
         let mut wtr = csv::WriterBuilder::new()
             .flexible(true)
             .has_headers(false)
